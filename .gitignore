@@ -1,0 +1,8 @@
+node_modules/
+dist/
+cache/
+.cache-test/
+logs/
+*.log
+.env
+.DS_Store

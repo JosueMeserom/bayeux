@@ -1,0 +1,31 @@
+{
+  "name": "bayeux",
+  "version": "0.1.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "description": "Embeds de X/Twitter que cosen las imagenes en una tira horizontal",
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.0",
+    "fastify": "^5.12.1",
+    "sharp": "^0.35.4",
+    "undici": "^7.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "type": "module",
+  "private": false,
+  "engines": {
+    "node": ">=20.18"
+  }
+}

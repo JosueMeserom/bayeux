@@ -1,0 +1,109 @@
+import { createHash } from 'node:crypto';
+import { readFile, writeFile, rename, mkdir, readdir, stat, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import sharp from 'sharp';
+import { ALGO_VERSION, config } from './config.js';
+import { fetchImage } from './fx.js';
+import type { Plan } from './layout.js';
+
+/** Clave de caché: id + layout + versión del algoritmo. */
+export function cacheKey(id: string, kind: 'row' | 'grid'): string {
+  return `${id}-${kind}-${ALGO_VERSION}.jpg`;
+}
+
+/**
+ * Lee el JPEG ya compuesto, si está.
+ *
+ * El og:image siempre lleva el layout fijado, así que con la URL basta para
+ * conocer la clave: un acierto de caché no necesita preguntarle nada a la API.
+ */
+export function readCached(id: string, kind: 'row' | 'grid'): Promise<Buffer | null> {
+  return readFile(join(config.cacheDir, cacheKey(id, kind))).catch(() => null);
+}
+
+/** Composición pura: mismos buffers dentro, mismo JPEG fuera. Sin red, testeable. */
+export async function composePanels(
+  plan: Extract<Plan, { kind: 'row' | 'grid' }>,
+  buffers: Buffer[],
+): Promise<Buffer> {
+  const composites = await Promise.all(
+    plan.panels.map(async (panel, i) => ({
+      input: await sharp(buffers[i]!)
+        // `cover` en vez de `fill`: en la fila las medidas ya respetan el aspecto
+        // y sólo absorbe el redondeo; en la cuadrícula es el recorte de verdad.
+        .resize(panel.width, panel.height, { fit: 'cover', position: 'centre' })
+        .toBuffer(),
+      left: panel.left,
+      top: panel.top,
+    })),
+  );
+
+  return sharp({
+    create: {
+      width: plan.width,
+      height: plan.height,
+      channels: 3,
+      background: config.bgColor,
+    },
+  })
+    .composite(composites)
+    .jpeg({ quality: config.jpegQuality, progressive: true, mozjpeg: true })
+    .toBuffer();
+}
+
+const compose = async (plan: Extract<Plan, { kind: 'row' | 'grid' }>) =>
+  composePanels(plan, await Promise.all(plan.panels.map((p) => fetchImage(p.url))));
+
+// Deduplicación en vuelo: dos peticiones simultáneas al mismo id componen una vez.
+const inFlight = new Map<string, Promise<Buffer>>();
+
+export async function renderStrip(id: string, plan: Extract<Plan, { kind: 'row' | 'grid' }>): Promise<Buffer> {
+  const key = cacheKey(id, plan.kind);
+  const path = join(config.cacheDir, key);
+
+  const cached = await readCached(id, plan.kind);
+  if (cached) return cached;
+
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+
+  const work = (async () => {
+    const buf = await compose(plan);
+    // Escritura atómica: un rename evita servir un JPEG a medias si el proceso muere.
+    const tmp = `${path}.${createHash('sha1').update(key).digest('hex').slice(0, 8)}.tmp`;
+    await mkdir(config.cacheDir, { recursive: true });
+    await writeFile(tmp, buf);
+    await rename(tmp, path);
+    return buf;
+  })().finally(() => inFlight.delete(key));
+
+  inFlight.set(key, work);
+  return work;
+}
+
+/** Poda la caché por antigüedad y por tamaño total, borrando lo más viejo primero. */
+export async function pruneCache(): Promise<{ removed: number; bytes: number }> {
+  const names = await readdir(config.cacheDir).catch(() => [] as string[]);
+  const entries = [];
+  for (const name of names) {
+    const path = join(config.cacheDir, name);
+    const s = await stat(path).catch(() => null);
+    if (s?.isFile()) entries.push({ path, size: s.size, mtime: s.mtimeMs });
+  }
+
+  entries.sort((a, b) => a.mtime - b.mtime);
+  const cutoff = Date.now() - config.cacheMaxAgeDays * 86_400_000;
+  let total = entries.reduce((a, e) => a + e.size, 0);
+  let removed = 0;
+  let bytes = 0;
+
+  for (const e of entries) {
+    if (e.mtime >= cutoff && total <= config.cacheMaxBytes) break;
+    if (await unlink(e.path).then(() => true, () => false)) {
+      total -= e.size;
+      bytes += e.size;
+      removed++;
+    }
+  }
+  return { removed, bytes };
+}
