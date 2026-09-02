@@ -118,7 +118,7 @@ las cose en una sola fila, en orden.</p>
 <p>Cambia <code>x.com</code> por <code>${escapeHtml(host)}</code> en el enlace:</p>
 <p><code>https://${escapeHtml(host)}/usuario/status/1234567890</code></p>
 <p>Añade <code>?layout=row</code> o <code>?layout=grid</code> para saltarte la detección automática.</p>
-<p><a href="${escapeHtml(config.repoUrl)}">Código fuente</a> · No afiliado a X Corp.</p>`;
+<p>${config.repoUrl ? `<a href="${escapeHtml(config.repoUrl)}">Código fuente</a> · ` : ''}No afiliado a X Corp.</p>`;
 
   return page(head, body);
 }

@@ -63,7 +63,7 @@ export const config = {
 
   siteName: str('SITE_NAME', 'Bayeux'),
   themeColor: str('THEME_COLOR', '#1d1f23'),
-  repoUrl: str('REPO_URL', 'https://github.com/'),
+  repoUrl: str('REPO_URL', ''),
   logLevel: str('LOG_LEVEL', 'info'),
 };
 
