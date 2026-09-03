@@ -103,11 +103,15 @@ ras.
 
 Por eso Bayeux no intenta adivinar lo que falta, sino **reproducir lo que se ve
 en X**, que es la referencia con la que trabaja quien dibuja. Medido a zoom 100%:
-una pieza de 1206px de alto se muestra a 702px, con 5px de separación. Como el
-hueco es una proporción de la altura (`5/702`), sale directamente de los
+una pieza de 1206px de alto se muestra a 702px, con 6px de separación. Como el
+hueco es una proporción de la altura (`6/702`), sale directamente de los
 metadatos y no hay que descargar ninguna imagen para calcularlo.
 
-Con la altura de 1200px por defecto, eso son 9px. Si un post concreto pide otra
+Que sea una proporción de la **altura** y no del ancho no es casual: cuando la
+fila no cabe, X **no la encoge**, la deja desbordar con scroll horizontal. O sea
+que el ancho del contenedor no entra en la cuenta.
+
+Con la altura de 1200px por defecto, eso son 10px. Si un post concreto pide otra
 cosa, `?gap=N` lo fuerza.
 
 ---
@@ -288,7 +292,7 @@ Todas tienen un valor por defecto razonable. El fichero completo y comentado est
 | `MAX_DOWNLOAD_BYTES` | `12582912` | Tope por imagen descargada |
 | `GAP` | `auto` | Separación entre paneles. Ver la sección de abajo |
 | `X_DISPLAY_HEIGHT` | `702` | Alto al que X escala la fila, a zoom 100% |
-| `X_DISPLAY_GAP` | `5` | Hueco que deja X entre trozos, a zoom 100% |
+| `X_DISPLAY_GAP` | `6` | Hueco que deja X entre trozos, a zoom 100% |
 | `BG_COLOR` | `transparent` | Color del hueco. Con `transparent` se ve el fondo del chat |
 | `WEBP_QUALITY` | `82` | Calidad del WebP |
 | `JPEG_QUALITY` | `88` | Calidad del JPEG |

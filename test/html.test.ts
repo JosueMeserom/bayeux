@@ -27,7 +27,7 @@ describe('meta etiquetas del embed', () => {
   it('og:image sale por el host de la petición', () => {
     // El & sale escapado dentro del atributo, que es lo correcto en HTML.
     expect(metaOf(html, 'og:image')).toBe(
-      `${BASE}/strip/1234567890123456789.webp?layout=row&#38;gap=9`,
+      `${BASE}/strip/1234567890123456789.webp?layout=row&#38;gap=10`,
     );
   });
 
@@ -42,8 +42,8 @@ describe('meta etiquetas del embed', () => {
     const ancho = planLayout(status, 'row', { ...defaultOpts(), gap: 24 });
     const out = embedHtml(status, ancho, BASE);
     expect(metaOf(out, 'og:image')).toContain('gap=24');
-    // 4 paneles y 3 huecos: 15px más que con el hueco automático de 9.
-    expect(Number(metaOf(out, 'og:image:width'))).toBe(1651 + 3 * 15);
+    // 4 paneles y 3 huecos: 14px más que con el hueco automático de 10.
+    expect(Number(metaOf(out, 'og:image:width'))).toBe(1654 + 3 * 14);
   });
 
   it('twitter:card es summary_large_image', () => {
@@ -191,7 +191,7 @@ describe('documento estilo Mastodon (el camino de Discord)', () => {
     const media = doc.media_attachments as { url: string; meta: { original: { width: number } } }[];
     expect(media).toHaveLength(1);
     expect(media[0]!.url).toBe(`${BASE}/strip/x.webp`);
-    expect(media[0]!.meta.original.width).toBe(1651);
+    expect(media[0]!.meta.original.width).toBe(1654);
   });
 
   it('mete las estadísticas en el cuerpo, en negrita y con &ensp;', () => {
