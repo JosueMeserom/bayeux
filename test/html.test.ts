@@ -36,13 +36,20 @@ describe('meta etiquetas del embed', () => {
     expect(metaOf(html, 'twitter:card')).toBe('summary_large_image');
   });
 
-  it('el título es el texto del post, para que Discord lo pinte en grande', () => {
-    expect(metaOf(html, 'og:title')).toBe('texto del post');
+  it('og:title es el autor: con el oEmbed en rich sube a la línea de autor', () => {
+    expect(metaOf(html, 'og:title')).toBe('Autora Ejemplo (@autor)');
   });
 
-  it('el autor va en el oEmbed, que es lo que le da su propia línea con icono', () => {
-    expect(oembedJson(status).author_name).toBe('Autora Ejemplo (@autor)');
-    expect(oembedJson(status).author_url).toBe('https://x.com/autor/status/1234567890123456789');
+  it('og:description es el texto del post, que Discord pinta como título', () => {
+    expect(metaOf(html, 'og:description')).toBe('texto del post');
+  });
+
+  it('el oEmbed va en rich, que es lo que desplaza las ranuras y saca el pie', () => {
+    const o = oembedJson(status);
+    expect(o.type).toBe('rich');
+    expect(o.author_name).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
+    expect(o.author_url).toBe('https://x.com/autor/status/1234567890123456789');
+    expect(o.provider_name).toBe('Bayeux');
   });
 
   it('declara el oEmbed y el avatar del autor', () => {
@@ -51,9 +58,12 @@ describe('meta etiquetas del embed', () => {
     expect(html).toContain('rel="apple-touch-icon"');
   });
 
-  it('un post sin texto se queda con el autor de título, no mudo', () => {
+  it('un post sin texto sigue mostrando autor y estadísticas', () => {
     const mute = { ...status, text: '   ' };
-    expect(metaOf(embedHtml(mute, plan, BASE), 'og:title')).toBe('Autora Ejemplo (@autor)');
+    const out = embedHtml(mute, plan, BASE);
+    expect(metaOf(out, 'og:title')).toBe('Autora Ejemplo (@autor)');
+    expect(metaOf(out, 'og:description')).toBeUndefined();
+    expect(oembedJson(mute).author_name).toContain('💬 55');
   });
 
   it('incluye refresh y enlace visible al post original', () => {
@@ -65,11 +75,7 @@ describe('meta etiquetas del embed', () => {
     const evil = { ...status, text: '<script>alert(1)</script>' };
     const out = embedHtml(evil, plan, BASE);
     expect(out).not.toContain('<script>');
-    expect(metaOf(out, 'og:title')).toContain('&#60;script&#62;');
-  });
-
-  it('la descripción son las estadísticas del post', () => {
-    expect(metaOf(html, 'og:description')).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
+    expect(metaOf(out, 'og:description')).toContain('&#60;script&#62;');
   });
 
   it('publica la fecha del post para el pie del embed', () => {

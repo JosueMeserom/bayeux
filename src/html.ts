@@ -39,15 +39,20 @@ export function authorLine(status: FxStatus): string {
  */
 export function oembedJson(status: FxStatus): Record<string, string> {
   return {
-    type: 'link',
+    // `rich` y no `link`: con `link`, Discord deja og:site_name como línea gris
+    // de arriba y no pinta pie. Con `rich` sube el og:title a la línea de autor
+    // (con su icono), el og:description pasa a título y este author_name cae en
+    // la descripción. Es la forma exacta que usa FxEmbed, copiada porque es la
+    // que demostrablemente produce ese diseño.
+    type: 'rich',
     version: '1.0',
-    // Discord pinta esto como la línea de autor, arriba del título.
-    author_name: authorLine(status),
+    title: 'Embed',
+    // Acaba en la línea de estadísticas, bajo el texto del post.
+    author_name: statsLine(status),
     author_url: status.url,
-    // Y esto como el pie del embed.
+    // Y esto en el pie del embed.
     provider_name: config.siteName,
     provider_url: config.repoUrl || status.url,
-    title: authorLine(status),
   };
 }
 
@@ -88,13 +93,12 @@ ${body}
 export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string {
   const image = imageUrl(status.id, plan, baseUrl);
   const author = authorLine(status);
-  const stats = statsLine(status);
   const original = status.url;
 
-  // El texto del post va de título y las estadísticas de descripción: el título
-  // se pinta en grande y el autor sube a su propia línea vía oEmbed. Un post sin
-  // texto se queda con el autor de título para no dejar el embed mudo.
-  const title = status.text.trim() ? truncate(status.text, 250) : author;
+  // Con el oEmbed en `rich`, Discord desplaza las ranuras: el og:title sube a la
+  // línea de autor y el og:description se pinta como título, en grande. Por eso
+  // el autor va en title y el texto del post en description, y no al revés.
+  const text = status.text.trim() ? truncate(status.text, 250) : '';
 
   const oembed = `${baseUrl}/oembed?id=${encodeURIComponent(status.id)}`;
   const published =
@@ -109,8 +113,8 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string
       // Apunta al post real: es lo que hace que el embed de Discord sea clicable al original.
       ['og:url', original],
       ['og:type', 'article'],
-      ['og:title', title],
-      ['og:description', stats],
+      ['og:title', author],
+      ['og:description', text],
       // Da la fecha del post al pie del embed.
       ['article:published_time', published],
       ['og:image', image],
@@ -118,8 +122,8 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string
       ['og:image:height', plan.kind === 'none' ? undefined : plan.height],
       // summary_large_image es lo que hace que Discord use imagen grande y no miniatura.
       ['twitter:card', image ? 'summary_large_image' : 'summary'],
-      ['twitter:title', title],
-      ['twitter:description', stats],
+      ['twitter:title', author],
+      ['twitter:description', text],
       ['twitter:image', image],
       ['twitter:creator', `@${status.author.screen_name}`],
       ['theme-color', config.themeColor],
