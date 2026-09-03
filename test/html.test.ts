@@ -27,7 +27,7 @@ describe('meta etiquetas del embed', () => {
   it('og:image sale por el host de la petición', () => {
     // El & sale escapado dentro del atributo, que es lo correcto en HTML.
     expect(metaOf(html, 'og:image')).toBe(
-      `${BASE}/strip/1234567890123456789.webp?layout=row&#38;gap=6`,
+      `${BASE}/strip/1234567890123456789.webp?layout=row&#38;gap=9`,
     );
   });
 
@@ -36,15 +36,14 @@ describe('meta etiquetas del embed', () => {
     expect(metaOf(forced, 'og:image')).toContain('layout=grid');
   });
 
-  it('el og:image fija también el hueco, y las medidas cuadran con él', () => {
-    // Cuánto contenido falta entre dos trozos depende de cómo cortase el autor,
-    // así que el hueco se puede afinar por post y tiene que viajar en la URL.
-    const opts = { ...defaultOpts(), gap: 24 };
-    const ancho = planLayout(status, 'row', opts);
-    const out = embedHtml(status, ancho, BASE, false, 24);
+  it('el og:image fija el hueco resuelto, y las medidas cuadran con él', () => {
+    // El hueco tiene que viajar en la URL: si no, la imagen servida podría
+    // salir con otro y las medidas declaradas dejarían de cuadrar.
+    const ancho = planLayout(status, 'row', { ...defaultOpts(), gap: 24 });
+    const out = embedHtml(status, ancho, BASE);
     expect(metaOf(out, 'og:image')).toContain('gap=24');
-    // 4 paneles, 3 huecos: 18px más que con el hueco de 6.
-    expect(Number(metaOf(out, 'og:image:width'))).toBe(1642 + 3 * 18);
+    // 4 paneles y 3 huecos: 15px más que con el hueco automático de 9.
+    expect(Number(metaOf(out, 'og:image:width'))).toBe(1651 + 3 * 15);
   });
 
   it('twitter:card es summary_large_image', () => {
@@ -192,7 +191,7 @@ describe('documento estilo Mastodon (el camino de Discord)', () => {
     const media = doc.media_attachments as { url: string; meta: { original: { width: number } } }[];
     expect(media).toHaveLength(1);
     expect(media[0]!.url).toBe(`${BASE}/strip/x.webp`);
-    expect(media[0]!.meta.original.width).toBe(1642);
+    expect(media[0]!.meta.original.width).toBe(1651);
   });
 
   it('mete las estadísticas en el cuerpo, en negrita y con &ensp;', () => {

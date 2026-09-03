@@ -16,10 +16,14 @@ export type Plan =
   | { kind: 'none' }
   /** Una sola foto: se enlaza pbs.twimg.com directamente, sin componer nada. */
   | { kind: 'passthrough'; url: string; width: number; height: number }
-  | { kind: 'row' | 'grid'; width: number; height: number; panels: Panel[] };
+  /** `gap` es el hueco ya resuelto en píxeles: viaja en la URL de la imagen. */
+  | { kind: 'row' | 'grid'; width: number; height: number; gap: number; panels: Panel[] };
 
 export interface LayoutOpts {
-  gap: number;
+  /** Número de píxeles, o `auto` para imitar la separación que enseña X. */
+  gap: number | 'auto';
+  xDisplayHeight: number;
+  xDisplayGap: number;
   maxHeight: number;
   maxPixels: number;
   maxPhotos: number;
@@ -29,6 +33,8 @@ export interface LayoutOpts {
 
 export const defaultOpts = (): LayoutOpts => ({
   gap: config.gap,
+  xDisplayHeight: config.xDisplayHeight,
+  xDisplayGap: config.xDisplayGap,
   maxHeight: config.maxHeight,
   maxPixels: config.maxPixels,
   maxPhotos: config.maxPhotos,
@@ -73,25 +79,38 @@ function fitBudget(height: number, areaAt: (h: number) => number, maxPixels: num
   return h;
 }
 
+/**
+ * Hueco entre paneles para una altura de lienzo dada.
+ *
+ * En `auto` es la misma proporción que usa X: escala la fila a una altura fija
+ * y deja unos pocos píxeles entre trozos, así que el hueco es una fracción de
+ * la altura y no un número absoluto.
+ */
+export function gapFor(height: number, o: LayoutOpts): number {
+  if (o.gap !== 'auto') return o.gap;
+  return Math.max(0, Math.round((height * o.xDisplayGap) / o.xDisplayHeight));
+}
+
 function planRow(photos: FxPhoto[], o: LayoutOpts): Plan {
-  const gaps = o.gap * (photos.length - 1);
   // Nunca se amplía por encima del original: se normaliza a la altura más baja.
   const source = Math.min(o.maxHeight, ...photos.map((p) => p.height));
   const widthsAt = (h: number) => photos.map((p) => Math.max(1, Math.round((p.width * h) / p.height)));
-  const areaAt = (h: number) => (widthsAt(h).reduce((a, b) => a + b, 0) + gaps) * h;
+  const areaAt = (h: number) =>
+    (widthsAt(h).reduce((a, b) => a + b, 0) + gapFor(h, o) * (photos.length - 1)) * h;
 
   const height = fitBudget(source, areaAt, o.maxPixels);
+  const gap = gapFor(height, o);
   const widths = widthsAt(height);
 
   let left = 0;
   const panels: Panel[] = photos.map((p, i) => {
     const width = widths[i]!;
     const panel: Panel = { url: p.url, left, top: 0, width, height };
-    left += width + o.gap;
+    left += width + gap;
     return panel;
   });
 
-  return { kind: 'row', width: left - o.gap, height, panels };
+  return { kind: 'row', width: left - gap, height, gap, panels };
 }
 
 /**
@@ -103,13 +122,14 @@ function planGrid(photos: FxPhoto[], o: LayoutOpts): Plan {
   const tallest = Math.max(...photos.map((p) => p.height));
   const height = fitBudget(Math.min(o.maxHeight, tallest), (h) => Math.round((h * 16) / 9) * h, o.maxPixels);
   const width = Math.round((height * 16) / 9);
+  const gap = gapFor(height, o);
 
   // La celda derecha/inferior absorbe el redondeo para cuadrar con el lienzo exacto.
-  const colW = Math.floor((width - o.gap) / 2);
-  const colX = colW + o.gap;
+  const colW = Math.floor((width - gap) / 2);
+  const colX = colW + gap;
   const colW2 = width - colX;
-  const rowH = Math.floor((height - o.gap) / 2);
-  const rowY = rowH + o.gap;
+  const rowH = Math.floor((height - gap) / 2);
+  const rowY = rowH + gap;
   const rowH2 = height - rowY;
 
   const boxes: Omit<Panel, 'url'>[] = [
@@ -133,7 +153,13 @@ function planGrid(photos: FxPhoto[], o: LayoutOpts): Plan {
     ],
   ][photos.length - 2]!;
 
-  return { kind: 'grid', width, height, panels: boxes.map((b, i) => ({ ...b, url: photos[i]!.url })) };
+  return {
+    kind: 'grid',
+    width,
+    height,
+    gap,
+    panels: boxes.map((b, i) => ({ ...b, url: photos[i]!.url })),
+  };
 }
 
 export function planLayout(status: FxStatus, requested: LayoutMode = 'auto', o = defaultOpts()): Plan {

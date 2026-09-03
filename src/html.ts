@@ -65,7 +65,7 @@ const meta = (pairs: [string, string | number | undefined][]) =>
     .join('\n');
 
 /** URL absoluta de la imagen del embed, o undefined si el post no tiene fotos. */
-export function imageUrl(id: string, plan: Plan, baseUrl: string, gap = config.gap): string | undefined {
+export function imageUrl(id: string, plan: Plan, baseUrl: string): string | undefined {
   if (plan.kind === 'none') return undefined;
   // Con una sola foto no se compone nada: se enlaza pbs.twimg.com tal cual.
   if (plan.kind === 'passthrough') return plan.url;
@@ -73,7 +73,7 @@ export function imageUrl(id: string, plan: Plan, baseUrl: string, gap = config.g
   // exactamente la que declaran og:image:width/height aunque cambie la heurística.
   // Layout y hueco van fijados en la URL: así la imagen servida es exactamente
   // la que declaran og:image:width/height, y la clave de caché sale de la URL.
-  return `${baseUrl}/strip/${id}.${EXT[STRIP_FORMAT]}?layout=${plan.kind}&gap=${gap}`;
+  return `${baseUrl}/strip/${id}.${EXT[STRIP_FORMAT]}?layout=${plan.kind}&gap=${plan.gap}`;
 }
 
 function page(head: string, body: string): string {
@@ -105,9 +105,8 @@ export function embedHtml(
   plan: Plan,
   baseUrl: string,
   forDiscord = false,
-  gap = config.gap,
 ): string {
-  const image = imageUrl(status.id, plan, baseUrl, gap);
+  const image = imageUrl(status.id, plan, baseUrl);
   const author = authorLine(status);
   const original = status.url;
 

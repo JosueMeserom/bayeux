@@ -47,6 +47,8 @@ Si la detección automática se equivoca, puedes forzarla desde la URL:
 | `?layout=row` | Fuerza la tira |
 | `?layout=grid` | Fuerza la cuadrícula |
 | `?layout=auto` | Por defecto |
+| `?gap=N` | Fuerza la separación entre paneles, en píxeles |
+| `?gap=auto` | Por defecto |
 
 ---
 
@@ -81,6 +83,32 @@ Discord tiene **soporte nativo de Mastodon**, así que al ver esa línea se desc
 La diferencia con otros servicios está en el campo `media_attachments` de ese documento. Ellos declaran **las fotos sueltas**, y por eso Discord las monta en su cuadrícula. Bayeux declara **un solo adjunto**, la tira ya cosida. Mismo embed bonito, sin que nadie despiece el dibujo.
 
 Al resto de clientes (Telegram, WhatsApp) se les sigue sirviendo OpenGraph normal.
+
+---
+
+## 📏 Cuánta separación dejar
+
+Los trozos de un post **no siempre son contiguos**. Se puede medir: comparando la
+diferencia entre columnas pegadas dentro de un panel con la que hay al cruzar el
+corte, sale cuánto contenido falta. En dos posts reales daba esto:
+
+| Post | Paneles | Falta | % del ancho |
+|---|---|---|---|
+| 4 fotos de 410×1206 | 4 | ~19px | 4,63% |
+| 3 fotos de 841×1277 | 3 | ~1px | 0,12% |
+
+O sea que **no hay un número universal**, porque depende de cómo cortase cada
+persona su dibujo. Unos compensan el hueco que va a meter X y otros cortan al
+ras.
+
+Por eso Bayeux no intenta adivinar lo que falta, sino **reproducir lo que se ve
+en X**, que es la referencia con la que trabaja quien dibuja. Medido a zoom 100%:
+una pieza de 1206px de alto se muestra a 702px, con 5px de separación. Como el
+hueco es una proporción de la altura (`5/702`), sale directamente de los
+metadatos y no hay que descargar ninguna imagen para calcularlo.
+
+Con la altura de 1200px por defecto, eso son 9px. Si un post concreto pide otra
+cosa, `?gap=N` lo fuerza.
 
 ---
 
@@ -210,7 +238,9 @@ Todas tienen un valor por defecto razonable. El fichero completo y comentado est
 | `MAX_HEIGHT` | `1200` | Altura común a la que se normaliza |
 | `MAX_PIXELS` | `12000000` | Presupuesto del lienzo. Si se pasa, la altura baja sola |
 | `MAX_DOWNLOAD_BYTES` | `12582912` | Tope por imagen descargada |
-| `GAP` | `6` | Separación entre paneles, en píxeles |
+| `GAP` | `auto` | Separación entre paneles. Ver la sección de abajo |
+| `X_DISPLAY_HEIGHT` | `702` | Alto al que X escala la fila, a zoom 100% |
+| `X_DISPLAY_GAP` | `5` | Hueco que deja X entre trozos, a zoom 100% |
 | `BG_COLOR` | `transparent` | Color del hueco. Con `transparent` se ve el fondo del chat |
 | `WEBP_QUALITY` | `82` | Calidad del WebP |
 | `JPEG_QUALITY` | `88` | Calidad del JPEG |

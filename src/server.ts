@@ -25,8 +25,10 @@ const xUrl = (handle: string, id: string, rest?: string) =>
  * 1px hasta 19px sobre paneles de tamaño parecido. Por eso el valor de
  * `GAP` es solo un defecto razonable y esto permite afinarlo por post.
  */
-function resolveGap(query: unknown): number {
-  const raw = Number((query as { gap?: unknown })?.gap);
+function resolveGap(query: unknown): number | 'auto' {
+  const value = (query as { gap?: unknown })?.gap;
+  if (value === 'auto') return 'auto';
+  const raw = Number(value);
   if (!Number.isFinite(raw)) return config.gap;
   return Math.min(200, Math.max(0, Math.round(raw)));
 }
@@ -113,7 +115,7 @@ export async function build() {
     return reply
       .type('application/json; charset=utf-8')
       .header('cache-control', 'public, max-age=300')
-      .send(mastodonStatus(status, plan, base, imageUrl(status.id, plan, base, gap)));
+      .send(mastodonStatus(status, plan, base, imageUrl(status.id, plan, base)));
   });
 
   // Sólo existe para que el enlace del <link rel="alternate"> no sea un 404:
@@ -148,8 +150,10 @@ export async function build() {
       // Con el layout fijado en la URL la clave de caché es conocida: un acierto
       // se sirve sin llamar a la API upstream.
       const gap = resolveGap(req.query);
+      // Sólo se puede saltar la API si el hueco viene ya resuelto en la URL,
+      // porque en `auto` depende de la altura, que sale de los metadatos.
       const pinned = req.query.layout;
-      if (pinned === 'row' || pinned === 'grid') {
+      if ((pinned === 'row' || pinned === 'grid') && typeof gap === 'number') {
         const hit = await readCached(id, pinned, format, gap);
         if (hit) return send(pinned, hit);
       }
@@ -166,7 +170,7 @@ export async function build() {
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
 
       try {
-        return send(plan.kind, await renderStrip(id, plan, format, gap));
+        return send(plan.kind, await renderStrip(id, plan, format, plan.gap));
       } catch (err) {
         // Degradar antes que reventar: la primera foto sola sigue siendo un embed útil.
         req.log.warn({ id, err: (err as Error).message }, 'composición fallida');
@@ -200,7 +204,7 @@ export async function build() {
       const gap = resolveGap(req.query);
       const plan = planLayout(status, resolveMode(req.query, req.headers), { ...defaultOpts(), gap });
       const isDiscord = (req.headers['user-agent'] ?? '').includes('Discordbot');
-      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord, gap);
+      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord);
     } catch (err) {
       const reason =
         err instanceof FxError && err.code === 404

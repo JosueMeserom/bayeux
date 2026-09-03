@@ -45,7 +45,14 @@ export const config = {
   // Presupuesto total de píxeles del lienzo. 12 MP ≈ 48 MB en RGBA sin comprimir.
   maxPixels: num('MAX_PIXELS', 12_000_000),
   maxDownloadBytes: num('MAX_DOWNLOAD_BYTES', 12 * 1024 * 1024),
-  gap: num('GAP', 6),
+  // `auto` reproduce la separación que enseña X: escala la fila a una altura
+  // fija y deja 5px entre trozos. Medido en un monitor al 100%: cada pieza de
+  // 1206px de alto se ve a 702, con 5px de hueco. Como el hueco es una
+  // proporción de la altura, sale de los metadatos y no hay que descargar nada.
+  // Un número fijo en su lugar desactiva el cálculo.
+  gap: str('GAP', 'auto') === 'auto' ? ('auto' as const) : num('GAP', 6),
+  xDisplayHeight: num('X_DISPLAY_HEIGHT', 702),
+  xDisplayGap: num('X_DISPLAY_GAP', 5),
   // `transparent` deja el hueco del color del chat, como se ve en otros embeds.
   // Cualquier color de CSS lo pinta fijo.
   bgColor: str('BG_COLOR', 'transparent'),

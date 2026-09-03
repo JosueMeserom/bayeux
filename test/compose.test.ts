@@ -39,7 +39,7 @@ describe('composición de la fila', () => {
 
     expect(meta.width).toBe(plan.width);
     expect(meta.height).toBe(plan.height);
-    expect(meta.width).toBe(400 + 420 + 380 + 6 * 2);
+    expect(meta.width).toBe(400 + 420 + 380 + plan.gap * 2);
   });
 
   it('coloca cada panel en su sitio y en orden', async () => {
@@ -63,7 +63,7 @@ describe('composición de la fila', () => {
     if (plan.kind !== 'row') throw new Error('esperaba row');
 
     const webp = await composePanels(plan, await Promise.all(dims.map(([w, h], i) => solid(w, h, i))));
-    const gapX = plan.panels[0]!.width + 3; // centro del hueco de 6px
+    const gapX = plan.panels[0]!.width + Math.floor(plan.gap / 2); // centro del hueco
 
     expect((await pixelAt(webp, gapX, 600)).a).toBe(0);
     // Y los paneles siguen siendo opacos.
@@ -77,7 +77,7 @@ describe('composición de la fila', () => {
 
     const jpeg = await composePanels(plan, await Promise.all(dims.map(([w, h], i) => solid(w, h, i))), 'jpeg');
     expect((await sharp(jpeg).metadata()).format).toBe('jpeg');
-    near(await pixelAt(jpeg, plan.panels[0]!.width + 3, 600), { r: 0, g: 0, b: 0 });
+    near(await pixelAt(jpeg, plan.panels[0]!.width + Math.floor(plan.gap / 2), 600), { r: 0, g: 0, b: 0 });
   });
 
   it('el WebP con alfa pesa menos que el JPEG equivalente', async () => {

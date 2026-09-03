@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOpts, planLayout } from '../src/layout.js';
+import { defaultOpts, gapFor, planLayout } from '../src/layout.js';
 import { REAL, statusWith } from './fixtures.js';
 
 const kindOf = (dims: [number, number][], extra = {}) =>
@@ -49,11 +49,13 @@ describe('geometría de la fila', () => {
     const plan = planLayout(statusWith(REAL.makokoto), 'row');
     if (plan.kind !== 'row') throw new Error('esperaba row');
 
-    // altura tope 1200 (las fuentes son 1206), anchos reescalados y 6px de hueco
+    // Altura tope 1200 (las fuentes son 1206) y hueco automático: X escala la
+    // fila a 702px de alto y deja 5px, o sea 1200*5/702 = 9px a esta altura.
     expect(plan.height).toBe(1200);
+    expect(plan.gap).toBe(9);
     expect(plan.panels.map((p) => p.width)).toEqual([408, 407, 405, 404]);
-    expect(plan.panels.map((p) => p.left)).toEqual([0, 414, 827, 1238]);
-    expect(plan.width).toBe(1642);
+    expect(plan.panels.map((p) => p.left)).toEqual([0, 417, 833, 1247]);
+    expect(plan.width).toBe(1651);
     expect(plan.panels.every((p) => p.top === 0)).toBe(true);
   });
 
@@ -61,7 +63,7 @@ describe('geometría de la fila', () => {
     const plan = planLayout(statusWith(REAL.momote), 'row');
     if (plan.kind !== 'row') throw new Error('esperaba row');
     const sum = plan.panels.reduce((a, p) => a + p.width, 0);
-    expect(plan.width).toBe(sum + 6 * (plan.panels.length - 1));
+    expect(plan.width).toBe(sum + plan.gap * (plan.panels.length - 1));
   });
 
   it('nunca amplía por encima de la fuente más baja', () => {
@@ -75,6 +77,25 @@ describe('geometría de la fila', () => {
     if (plan.kind !== 'row') throw new Error('esperaba row');
     expect(plan.width * plan.height).toBeLessThanOrEqual(500_000);
     expect(plan.height).toBeLessThan(1200);
+  });
+});
+
+describe('hueco automático', () => {
+  it('es proporcional a la altura, como el que enseña X', () => {
+    // 5px sobre 702 de alto. A media altura, la mitad de hueco.
+    expect(gapFor(702, defaultOpts())).toBe(5);
+    expect(gapFor(1404, defaultOpts())).toBe(10);
+    expect(gapFor(1200, defaultOpts())).toBe(9);
+  });
+
+  it('un GAP numérico desactiva el cálculo', () => {
+    expect(gapFor(1200, { ...defaultOpts(), gap: 24 })).toBe(24);
+    expect(gapFor(300, { ...defaultOpts(), gap: 0 })).toBe(0);
+  });
+
+  it('el plan expone el hueco ya resuelto, para que viaje en la URL', () => {
+    const plan = planLayout(statusWith(REAL.momote), 'row');
+    expect(plan.kind === 'row' && plan.gap).toBe(9);
   });
 });
 
