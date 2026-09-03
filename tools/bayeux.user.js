@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.2
+// @version      1.0.3
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -190,23 +190,33 @@
 
   function procesar(article) {
     if (article.hasAttribute(MARCA)) return;
+
     const barra = barraDe(article);
     if (!barra) return; // aún sin pintar del todo; ya volverá el observador
 
     // Sin dos fotos propias no hay tira que coser, así que el botón sobra.
-    const datos = fotosPropias(article).length >= 2 && !tieneVideo(article)
-      ? datosDe(article)
-      : null;
+    if (fotosPropias(article).length < 2 || tieneVideo(article)) return;
 
-    article.setAttribute(MARCA, datos ? '1' : '0');
+    const datos = datosDe(article);
     if (!datos) return;
 
+    /*
+     * Sólo se marca cuando el botón se ha puesto de verdad, nunca al descartar.
+     *
+     * X pinta la barra de acciones ANTES que las fotos, así que en la primera
+     * pasada un post con imágenes parece no tenerlas. Si se marcase ahí, el
+     * post quedaría descartado para siempre y el botón no aparecería nunca:
+     * eso rompió la versión 1.0.2. Dejarlo sin marcar cuesta volver a mirarlo
+     * en las siguientes pasadas, que ya van agrupadas por requestAnimationFrame.
+     */
+    article.setAttribute(MARCA, '1');
     barra.appendChild(crearBoton(datos.handle, datos.id, tamanoIcono(barra)));
   }
 
   function barrer() {
     for (const a of document.querySelectorAll('article:not([' + MARCA + '])')) {
-      procesar(a);
+      // Cinturón por si el atributo se pierde en un re-render de X.
+      if (!a.querySelector('.bayeux-btn')) procesar(a);
     }
   }
 

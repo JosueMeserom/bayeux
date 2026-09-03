@@ -437,7 +437,9 @@ const PARAMS = '';                       // p.ej. '?layout=row' si lo quieres si
 ```
 
 El botón **sólo sale donde sirve de algo**: en posts con dos o más fotos propias y sin
-vídeo. Un post de sólo texto, o uno que cita a otro con dibujos, no lo enseña, porque ahí
+vídeo. Un detalle que costó una versión: X pinta la barra de acciones **antes** que las
+fotos, así que un post con imágenes parece no tenerlas en la primera pasada. Por eso sólo
+se marca un post como visto cuando el botón se ha puesto de verdad, nunca al descartarlo. Un post de sólo texto, o uno que cita a otro con dibujos, no lo enseña, porque ahí
 no hay ninguna tira que coser. Las fotos de una cita se distinguen porque van dentro de un
 `div[role="link"]` y las del propio post no.
 
