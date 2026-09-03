@@ -119,6 +119,13 @@ pm2 reload bayeux        # recargar sin cortar peticiones
 pm2 monit                # CPU y memoria
 ```
 
+`restart` **no relee `ecosystem.config.cjs`**. Si cambias ese fichero (el puerto,
+los `node_args`, la ruta del script), hace falta recrear la app:
+
+```bash
+pm2 delete bayeux && pm2 start ecosystem.config.cjs && pm2 save
+```
+
 ### Comprobación manual
 
 ```bash
