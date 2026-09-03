@@ -229,8 +229,8 @@ export async function start() {
   const app = await build();
 
   const prune = async () => {
-    const { removed, bytes } = await pruneCache();
-    if (removed) app.log.info({ removed, bytes }, 'caché podada');
+    const { removed, bytes, total } = await pruneCache();
+    if (removed) app.log.info({ removed, bytes, total }, 'caché podada');
   };
   await prune();
   const timer = setInterval(prune, 6 * 60 * 60 * 1000);

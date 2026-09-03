@@ -168,6 +168,19 @@ pm2 delete bayeux && pm2 start ecosystem.config.cjs && pm2 save
 (En este proyecto da igual, porque las variables no vienen de `env` sino del `.env` que
 carga Node con `--env-file-if-exists`.)
 
+### Vigilancia
+
+pm2 reinicia el proceso si se muere, pero no cubre el caso de que siga vivo y deje de
+responder. `scripts/vigilar.sh` comprueba `/health` desde fuera y reinicia si hace falta:
+
+```bash
+*/5 * * * * HEALTH_URL=http://127.0.0.1:3000/health /ruta/a/bayeux/scripts/vigilar.sh >/dev/null 2>&1
+```
+
+Hace tres intentos antes de dar nada por caído (un corte de un segundo no es una caída),
+anota lo que pasa en `~/bayeux-vigilante.log` y, si defines `WEBHOOK_URL`, avisa por
+Discord. Con `DRY_RUN=1` detecta pero no reinicia, que es como se prueba sin tocar nada.
+
 ### Comprobación rápida
 
 ```bash
@@ -325,6 +338,9 @@ Cosas que igual no se ven a primera vista:
 - **Una sola foto no se compone.** Se enlaza directamente a `pbs.twimg.com` en resolución original. Cero ancho de banda y cero pérdida de calidad.
 - **El hueco entre paneles es transparente**, así que se ve del color del chat en vez de una franja negra en tema claro. Por eso la salida es WebP, que conserva el canal alfa y encima pesa la mitad que el JPEG.
 - **Dos peticiones a la vez al mismo post componen una sola imagen**, no dos.
+- **El tope de tamaño de la caché se comprueba al escribir**, no solo en la poda
+  periódica. Como la clave incluye layout, formato y hueco, un mismo post admite muchas
+  variantes, y entre poda y poda no habría nada que frenara el crecimiento.
 - **Nunca un 500 pelado.** Si la API falla o el post no existe, se devuelve un HTML de error con `200` y el enlace original intacto, porque en Discord un 4xx o un 5xx se ve como enlace roto y sin explicación.
 
 Sin base de datos. La caché es en disco y se poda por tamaño y antigüedad.

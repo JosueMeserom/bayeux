@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 20 porque es el que corre en produccion. Un CI que prueba en otra
+      # version avisa tarde y a veces miente.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
       - run: npm ci
       # `lint` es `tsc --noEmit`: en un proyecto TypeScript en strict mode

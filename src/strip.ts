@@ -90,6 +90,25 @@ const compose = async (plan: Extract<Plan, { kind: 'row' | 'grid' }>, format: St
 // Deduplicación en vuelo: dos peticiones simultáneas al mismo id componen una vez.
 const inFlight = new Map<string, Promise<Buffer>>();
 
+/*
+ * Tamaño total de la caché, en bytes. Lo fija la primera poda (que recorre el
+ * directorio) y a partir de ahí se va sumando en cada escritura.
+ *
+ * Existe porque el tope de tamaño no puede comprobarse sólo en la poda
+ * periódica: la clave de caché incluye el layout, el formato y el hueco, así
+ * que un mismo post admite cientos de variantes y entre poda y poda no habría
+ * nada que frenara el crecimiento.
+ */
+let cacheBytes: number | null = null;
+let pruning: Promise<PruneResult> | null = null;
+
+/** Suma lo escrito y poda en cuanto se pasa del tope, sin esperar al reloj. */
+async function anotarEscritura(bytes: number): Promise<void> {
+  if (cacheBytes === null) return; // aún sin medir; ya lo hará la poda al arrancar
+  cacheBytes += bytes;
+  if (cacheBytes > config.cacheMaxBytes) await pruneCache();
+}
+
 export async function renderStrip(
   id: string,
   plan: Extract<Plan, { kind: 'row' | 'grid' }>,
@@ -112,6 +131,7 @@ export async function renderStrip(
     await mkdir(config.cacheDir, { recursive: true });
     await writeFile(tmp, buf);
     await rename(tmp, path);
+    await anotarEscritura(buf.length);
     return buf;
   })().finally(() => inFlight.delete(key));
 
@@ -119,8 +139,28 @@ export async function renderStrip(
   return work;
 }
 
-/** Poda la caché por antigüedad y por tamaño total, borrando lo más viejo primero. */
-export async function pruneCache(): Promise<{ removed: number; bytes: number }> {
+export interface PruneResult {
+  /** Ficheros borrados. */
+  removed: number;
+  /** Bytes liberados. */
+  bytes: number;
+  /** Tamaño total que queda en disco. */
+  total: number;
+}
+
+/**
+ * Poda la caché por antigüedad y por tamaño total, borrando lo más viejo
+ * primero. Si ya hay una poda en marcha, se devuelve esa misma: no tiene
+ * sentido recorrer el directorio dos veces a la vez.
+ */
+export function pruneCache(): Promise<PruneResult> {
+  pruning ??= podar().finally(() => {
+    pruning = null;
+  });
+  return pruning;
+}
+
+async function podar(): Promise<PruneResult> {
   const names = await readdir(config.cacheDir).catch(() => [] as string[]);
   const entries = [];
   for (const name of names) {
@@ -143,5 +183,7 @@ export async function pruneCache(): Promise<{ removed: number; bytes: number }> 
       removed++;
     }
   }
-  return { removed, bytes };
+
+  cacheBytes = total;
+  return { removed, bytes, total };
 }
