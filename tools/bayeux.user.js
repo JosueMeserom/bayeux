@@ -1,12 +1,16 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.0
+// @version      1.0.1
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
 // @match        https://twitter.com/*
 // @icon         https://bayeux.ultrak.dynu.net/icon.png
+// @homepageURL  https://github.com/JosueMeserom/bayeux
+// @supportURL   https://github.com/JosueMeserom/bayeux/issues
+// @downloadURL  https://raw.githubusercontent.com/JosueMeserom/bayeux/main/tools/bayeux.user.js
+// @updateURL    https://raw.githubusercontent.com/JosueMeserom/bayeux/main/tools/bayeux.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -39,7 +43,12 @@
   css.textContent = `
     .bayeux-btn {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 34.75px; height: 34.75px; margin: -6px 0;
+      width: 34.75px; height: 34.75px;
+      /* Ni margen negativo ni align-self propio: la barra del post en su página
+         alinea distinto que la de la línea de tiempo, así que cualquier ajuste
+         vertical acierta en una y falla en la otra. Sin imponer nada, el botón
+         se coloca como uno más de sus hermanos, que es lo que queremos. */
+      flex: 0 0 auto; margin: 0;
       border: 0; padding: 0; background: none; cursor: pointer;
       color: inherit; opacity: .6; border-radius: 9999px;
       transition: opacity .12s, background-color .12s, color .12s;
