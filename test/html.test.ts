@@ -48,8 +48,10 @@ describe('meta etiquetas del embed', () => {
     expect(metaOf(html, 'og:description')).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
   });
 
-  it('no declara og:site_name: esa línea gris tapaba el sitio del autor', () => {
-    expect(metaOf(html, 'og:site_name')).toBeUndefined();
+  it('og:site_name da nombre al pie del embed', () => {
+    // Sin esto Discord cae al dominio de la petición, y con nueve subdominios
+    // el pie saldría distinto según por cuál se pegue el enlace.
+    expect(metaOf(html, 'og:site_name')).toBe('Bayeux');
   });
 
   it('declara el oEmbed y el avatar del autor', () => {

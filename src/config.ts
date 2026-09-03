@@ -65,6 +65,9 @@ export const config = {
   rateLimitWindowMs: num('RATE_LIMIT_WINDOW_MS', 60_000),
 
   siteName: str('SITE_NAME', 'Bayeux'),
+  // Fichero local con el logo. Se sirve en /icon.png y es el icono que Discord
+  // pinta en el pie del embed. Si no existe, no se declara y no pasa nada.
+  brandIcon: str('BRAND_ICON', 'assets/icon.png'),
   themeColor: str('THEME_COLOR', '#1d1f23'),
   repoUrl: str('REPO_URL', ''),
   logLevel: str('LOG_LEVEL', 'info'),

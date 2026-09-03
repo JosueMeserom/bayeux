@@ -2,6 +2,7 @@ import { config } from './config.js';
 import type { FxStatus } from './fx.js';
 import type { Plan } from './layout.js';
 import { EXT, STRIP_FORMAT } from './strip.js';
+import { hasBrandIcon } from './brand.js';
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -115,8 +116,9 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string, forDisc
   const head = [
     `<title>${escapeHtml(author)}</title>`,
     meta([
-      // Sin og:site_name a propósito: Discord lo pinta como una línea gris
-      // encima de todo, y esa línea es justo donde tiene que ir el autor.
+      // Da nombre al pie del embed. Sin esto Discord cae al dominio por el que
+      // entró la petición, que con nueve subdominios queda distinto cada vez.
+      ['og:site_name', config.siteName],
       // Apunta al post real: es lo que hace que el embed de Discord sea clicable al original.
       ['og:url', original],
       ['og:type', 'article'],
@@ -139,6 +141,8 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string, forDisc
     status.author.avatar_url
       ? `<link rel="apple-touch-icon" href="${escapeHtml(status.author.avatar_url)}">`
       : '',
+    // Y el favicon como icono del pie.
+    hasBrandIcon() ? `<link rel="icon" type="image/png" href="${baseUrl}/icon.png">` : '',
     `<link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembed)}" title="${escapeHtml(author)}">`,
     forDiscord
       ? `<link rel="alternate" type="application/activity+json" href="${escapeHtml(activityUrl(status, baseUrl))}">`

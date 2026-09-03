@@ -1,7 +1,9 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { config } from './config.js';
+import { brandIconPath, hasBrandIcon } from './brand.js';
 import { FxError, fetchStatus, photosOf } from './fx.js';
 import { embedHtml, errorHtml, imageUrl, landingHtml, oembedJson } from './html.js';
 import { mastodonStatus } from './mastodon.js';
@@ -44,6 +46,15 @@ export async function build() {
   });
 
   app.get('/health', async () => ({ status: 'ok', uptime: Math.round(process.uptime()) }));
+
+  // El logo, para el icono del pie del embed y la pestaña del navegador.
+  app.get('/icon.png', async (_req, reply) => {
+    if (!hasBrandIcon()) return reply.code(404).send({ error: 'sin logo configurado' });
+    return reply
+      .type('image/png')
+      .header('cache-control', 'public, max-age=86400')
+      .send(await readFile(brandIconPath));
+  });
 
   app.get('/', async (req, reply) => {
     reply.type('text/html; charset=utf-8').header('cache-control', 'public, max-age=3600');
