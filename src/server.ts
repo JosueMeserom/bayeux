@@ -1,7 +1,6 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { mkdir } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
 import { config } from './config.js';
 import { FxError, fetchStatus, photosOf } from './fx.js';
 import { embedHtml, errorHtml, landingHtml } from './html.js';
@@ -148,12 +147,4 @@ export async function start() {
 
   await app.listen({ port: config.port, host: config.host });
   return app;
-}
-
-// Sólo arranca si se ejecuta directamente, no al importarlo desde los tests.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  start().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
 }

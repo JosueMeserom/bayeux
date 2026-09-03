@@ -9,13 +9,16 @@ module.exports = {
   apps: [
     {
       name: 'bayeux',
-      script: 'dist/server.js',
+      script: 'dist/main.js',
       cwd: __dirname,
       exec_mode: 'fork',
       instances: 1,
 
-      // Carga el .env del directorio del proyecto.
-      env_file: '.env',
+      // Carga el .env con el soporte nativo de Node (>=20.6). `env_file` de pm2
+      // no lo aplica en todas las versiones, y falla en silencio: el proceso
+      // arranca con los valores por defecto y parece que todo va bien.
+      // `-if-exists` para que el repo siga arrancando sin .env.
+      node_args: '--env-file-if-exists=.env',
 
       // Con MAX_PIXELS a 12 MP el pico de una composición ronda los 50 MB de
       // buffers, más libvips y el runtime. 512M deja margen y ataja fugas.

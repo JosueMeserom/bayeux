@@ -1,11 +1,11 @@
 {
   "name": "bayeux",
   "version": "0.1.0",
-  "main": "dist/server.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
