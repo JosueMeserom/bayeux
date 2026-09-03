@@ -80,6 +80,33 @@ function fitBudget(height: number, areaAt: (h: number) => number, maxPixels: num
 }
 
 /**
+ * Las dos proporciones medidas en X, una por cada uno de sus layouts.
+ *
+ * La clave es el zoom del navegador con el que se llega a cada uno. X separa
+ * siempre 6 píxeles CSS, pero pinta los trozos a tamaños distintos según el
+ * layout, así que la proporción cambia. Los valores están en las unidades en
+ * que se midieron (físicas en el caso del móvil, a DPR 3) porque sólo se usa
+ * el cociente y las unidades se cancelan.
+ *
+ * Son DOS medidas, no una curva: X cambia de layout en un punto de corte que
+ * no hemos localizado. Un zoom intermedio se acerca al más próximo de los dos,
+ * no interpola, porque interpolar sería inventarse un dato.
+ */
+export const VISTAS: Record<number, { gap: number; height: number }> = {
+  100: { gap: 6, height: 700 },      // escritorio al 100%: layout ancho
+  300: { gap: 18, height: 1393 },    // móvil, o zoom al 300%: layout estrecho
+};
+
+/** Opciones de hueco para un zoom dado, o undefined si el valor no vale. */
+export function vistaPara(zoom: number): Pick<LayoutOpts, 'xDisplayGap' | 'xDisplayHeight'> | undefined {
+  if (!Number.isFinite(zoom) || zoom <= 0) return undefined;
+  const claves = Object.keys(VISTAS).map(Number);
+  const cerca = claves.reduce((a, b) => (Math.abs(b - zoom) < Math.abs(a - zoom) ? b : a));
+  const v = VISTAS[cerca]!;
+  return { xDisplayGap: v.gap, xDisplayHeight: v.height };
+}
+
+/**
  * Hueco entre paneles para una altura de lienzo dada.
  *
  * En `auto` es la misma proporción que usa X: escala la fila a una altura fija

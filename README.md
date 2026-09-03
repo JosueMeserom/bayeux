@@ -49,6 +49,8 @@ Si la detección automática se equivoca, puedes forzarla desde la URL:
 | `?layout=auto` | Por defecto |
 | `?gap=N` | Fuerza la separación entre paneles, en píxeles |
 | `?gap=auto` | Por defecto |
+| `?zoom=100` | Calcula el hueco como el layout ancho de X (escritorio al 100%) |
+| `?zoom=300` | Como el layout estrecho (móvil, o zoom al 300%). Por defecto |
 
 ---
 
@@ -113,8 +115,32 @@ trozos, así que la **proporción** no es la misma:
 | Ancho (escritorio al 100%) | 700 px CSS | 0,857 % |
 | Estrecho (móvil, o zoom al 300%) | 464 px CSS | 1,292 % |
 
-Se calibra sobre el **estrecho**, que es donde encajan los cortes. Con la altura
-de 1200px por defecto eso son **16px**.
+Se calibra sobre el **estrecho**, que con la altura de 1200px por defecto son
+**16px**. `?zoom=100` cambia al ancho (10px) y `?zoom=300` es el valor por
+defecto.
+
+#### Por qué el estrecho por defecto
+
+Cuatro motivos, y el último es el que más pesa:
+
+1. **Es donde encajan los cortes.** Midiendo sobre la propia imagen cuánto
+   contenido falta entre trozos salen 15 a 25 px de origen. El layout estrecho
+   da 15,6 y el ancho 10,3, que se queda fuera del rango.
+2. **Es la vista donde se revisa el post.** Quien dibuja mira cómo ha quedado en
+   el móvil, así que es razonable que cortara pensando en esa separación.
+3. **Se ve mejor**, y no es solo cuestión de gusto: por debajo de cierto ancho,
+   una discontinuidad se lee como un defecto (una línea de compresión, un fallo
+   de escalado) y no como una decisión. Por encima, se lee como el canalón de
+   una viñeta: separa sin romper la unidad. Todo el sentido de este servicio es
+   que se note lo segundo.
+4. **El error no cuesta lo mismo en las dos direcciones.** Pasarse deja un hueco
+   algo generoso pero claramente intencionado; quedarse corto hace que las
+   líneas parezcan ruido. Ante la duda, conviene errar por arriba.
+
+Los dos valores son medidas reales, no una curva. X cambia de layout en un punto
+de corte que no hemos localizado, así que un `?zoom=` intermedio se acerca al más
+próximo de los dos en vez de interpolar, porque interpolar sería inventarse un
+dato.
 
 Que el hueco sea una proporción de la **altura** y no del ancho no es casual:
 cuando la fila no cabe, X **no la encoge**, la deja desbordar con scroll

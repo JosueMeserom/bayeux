@@ -8,7 +8,14 @@ import { FxError, fetchStatus, photosOf } from './fx.js';
 import { embedHtml, errorHtml, imageUrl, landingHtml, oembedJson } from './html.js';
 import { mastodonStatus } from './mastodon.js';
 import { baseUrlFor, hostLayout, isCrawler } from './http.js';
-import { defaultOpts, isLayoutMode, planLayout, type LayoutMode } from './layout.js';
+import {
+  defaultOpts,
+  isLayoutMode,
+  planLayout,
+  vistaPara,
+  type LayoutMode,
+  type LayoutOpts,
+} from './layout.js';
 import { formatFromExt, pruneCache, readCached, renderStrip, type StripFormat } from './strip.js';
 
 const HANDLE = /^[A-Za-z0-9_]{1,15}$/;
@@ -31,6 +38,20 @@ function resolveGap(query: unknown): number | 'auto' {
   const raw = Number(value);
   if (!Number.isFinite(raw)) return config.gap;
   return Math.min(200, Math.max(0, Math.round(raw)));
+}
+
+/**
+ * Opciones de composición para una petición.
+ *
+ * `?zoom=` elige con qué layout de X se calcula el hueco (100 el ancho, 300 el
+ * estrecho). `?gap=` manda por encima y fija los píxeles a pelo. Sea cual sea
+ * la vía, lo que acaba viajando en la URL de la imagen es el hueco ya resuelto
+ * en píxeles, así que la clave de caché no gana ninguna dimensión nueva.
+ */
+function resolveOpts(query: unknown): LayoutOpts {
+  const q = query as { zoom?: unknown } | undefined;
+  const vista = q?.zoom === undefined ? undefined : vistaPara(Number(q.zoom));
+  return { ...defaultOpts(), ...vista, gap: resolveGap(query) };
 }
 
 /** Prioridad: query param > layout por defecto del host > auto. */
@@ -110,8 +131,7 @@ export async function build() {
     if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
     const base = baseUrlFor(req.headers, req.protocol);
-    const gap = resolveGap(req.query);
-    const plan = planLayout(status, resolveMode(req.query, req.headers), { ...defaultOpts(), gap });
+    const plan = planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
     return reply
       .type('application/json; charset=utf-8')
       .header('cache-control', 'public, max-age=300')
@@ -161,10 +181,7 @@ export async function build() {
       const status = await fetchStatus(id).catch(() => null);
       if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
-      const plan = planLayout(status, resolveMode(req.query, req.headers), {
-        ...defaultOpts(),
-        gap,
-      });
+      const plan = planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
       if (plan.kind === 'none') return reply.code(404).send({ error: 'el post no tiene fotos' });
       // Una sola foto: no hay nada que componer, se manda al original de pbs.twimg.com.
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
@@ -201,8 +218,7 @@ export async function build() {
     reply.type('text/html; charset=utf-8');
     try {
       const status = await fetchStatus(id);
-      const gap = resolveGap(req.query);
-      const plan = planLayout(status, resolveMode(req.query, req.headers), { ...defaultOpts(), gap });
+      const plan = planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
       const isDiscord = (req.headers['user-agent'] ?? '').includes('Discordbot');
       return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord);
     } catch (err) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOpts, gapFor, planLayout } from '../src/layout.js';
+import { defaultOpts, gapFor, planLayout, vistaPara } from '../src/layout.js';
 import { REAL, statusWith } from './fixtures.js';
 
 const kindOf = (dims: [number, number][], extra = {}) =>
@@ -91,6 +91,39 @@ describe('hueco automático', () => {
   it('un GAP numérico desactiva el cálculo', () => {
     expect(gapFor(1200, { ...defaultOpts(), gap: 24 })).toBe(24);
     expect(gapFor(300, { ...defaultOpts(), gap: 0 })).toBe(0);
+  });
+
+  it('cada vista de X da su propia proporción', () => {
+    const ancha = { ...defaultOpts(), ...vistaPara(100)! };
+    const estrecha = { ...defaultOpts(), ...vistaPara(300)! };
+    expect(gapFor(1200, ancha)).toBe(10);
+    expect(gapFor(1200, estrecha)).toBe(16);
+    // La estrecha es la de por defecto.
+    expect(gapFor(1200, defaultOpts())).toBe(16);
+  });
+
+  it('un zoom intermedio se acerca al layout más próximo, no interpola', () => {
+    // Son dos medidas, no una curva: X cambia de layout en un punto de corte
+    // que no hemos localizado, así que interpolar sería inventarse un dato.
+    expect(vistaPara(150)).toEqual(vistaPara(100));
+    expect(vistaPara(250)).toEqual(vistaPara(300));
+    expect(vistaPara(500)).toEqual(vistaPara(300));
+  });
+
+  it('un zoom que no vale se ignora, y manda el valor por defecto', () => {
+    expect(vistaPara(0)).toBeUndefined();
+    expect(vistaPara(-100)).toBeUndefined();
+    expect(vistaPara(Number.NaN)).toBeUndefined();
+  });
+
+  it('el zoom acaba resolviéndose a píxeles en el plan', () => {
+    const plan = planLayout(statusWith(REAL.makokoto), 'row', {
+      ...defaultOpts(),
+      ...vistaPara(100)!,
+    });
+    // Lo que viaja en la URL es el hueco resuelto, no el zoom: la clave de
+    // caché no gana ninguna dimensión nueva.
+    expect(plan.kind === 'row' && plan.gap).toBe(10);
   });
 
   it('el plan expone el hueco ya resuelto, para que viaje en la URL', () => {
