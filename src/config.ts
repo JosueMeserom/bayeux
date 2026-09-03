@@ -41,7 +41,10 @@ export const config = {
   userAgent: str('OUTBOUND_USER_AGENT', 'Bayeux/0.1 (+https://github.com/)'),
 
   maxPhotos: num('MAX_PHOTOS', 4),
-  maxHeight: num('MAX_HEIGHT', 1200),
+  // 2000 y no 1200: con 1200 se recortaba un 0,5% de fotos que ya venían a
+  // 1206, o sea pérdida de calidad a cambio de nada. El presupuesto de píxeles
+  // sigue siendo quien acota de verdad.
+  maxHeight: num('MAX_HEIGHT', 2000),
   // Presupuesto total de píxeles del lienzo. 12 MP ≈ 48 MB en RGBA sin comprimir.
   maxPixels: num('MAX_PIXELS', 12_000_000),
   maxDownloadBytes: num('MAX_DOWNLOAD_BYTES', 12 * 1024 * 1024),
@@ -69,7 +72,10 @@ export const config = {
   // Cualquier color de CSS lo pinta fijo.
   bgColor: str('BG_COLOR', 'transparent'),
   jpegQuality: num('JPEG_QUALITY', 88),
-  webpQuality: num('WEBP_QUALITY', 82),
+  // 92 en vez de 82: queda un 30% más cerca del original y la mejora sobrevive
+  // al reescalado de Discord. Cuesta pasar de ~185 a ~310 KB por tira, que se
+  // paga una sola vez porque Discord la cachea en su CDN.
+  webpQuality: num('WEBP_QUALITY', 92),
   // Dispersión relativa de alturas tolerada para considerar una fila: (max-min)/max.
   rowHeightTolerance: num('ROW_HEIGHT_TOLERANCE', 0.02),
   // Igual pero sobre el aspecto (w/h). Por defecto desactivada (Infinity):

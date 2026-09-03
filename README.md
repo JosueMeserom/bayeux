@@ -51,6 +51,7 @@ Si la detección automática se equivoca, puedes forzarla desde la URL:
 | `?gap=auto` | Por defecto |
 | `?zoom=100` | Calcula el hueco como el layout ancho de X (escritorio al 100%) |
 | `?zoom=300` | Como el layout estrecho (móvil, o zoom al 300%). Por defecto |
+| `?q=N` | Calidad de compresión, 40 a 100. Sólo en `/strip/`, porque no cambia las dimensiones |
 
 ---
 
@@ -339,7 +340,7 @@ Todas tienen un valor por defecto razonable. El fichero completo y comentado est
 | Variable | Por defecto | Qué hace |
 |---|---|---|
 | `MAX_PHOTOS` | `4` | Tope de paneles |
-| `MAX_HEIGHT` | `1200` | Altura común a la que se normaliza |
+| `MAX_HEIGHT` | `2000` | Altura común a la que se normaliza. Alto para no reescalar de más |
 | `MAX_PIXELS` | `12000000` | Presupuesto del lienzo. Si se pasa, la altura baja sola |
 | `MAX_DOWNLOAD_BYTES` | `12582912` | Tope por imagen descargada |
 | `GAP` | `auto` | Separación entre paneles. Ver la sección de abajo |
@@ -418,6 +419,11 @@ Sin vender humo:
 ---
 
 ## 🧪 Desarrollo
+
+En `tools/comparar.html` hay una página suelta (se abre con doble clic, no se
+despliega) que pinta la misma tira con dos juegos de parámetros al lado, con su
+peso y su tiempo de descarga. Sirve para decidir ajustes de compresión mirando,
+en vez de a ojo.
 
 ```bash
 npm run dev      # tsx en modo watch

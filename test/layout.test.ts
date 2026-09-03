@@ -49,13 +49,13 @@ describe('geometría de la fila', () => {
     const plan = planLayout(statusWith(REAL.makokoto), 'row');
     if (plan.kind !== 'row') throw new Error('esperaba row');
 
-    // Altura tope 1200 (las fuentes son 1206) y hueco automático: la
-    // proporción de X en su layout estrecho, 18/1393, da 16px a esta altura.
-    expect(plan.height).toBe(1200);
+    // Con MAX_HEIGHT a 2000 estas fotos no se reescalan: se cosen a su 1206
+    // original. El hueco sale de la proporción de X, 18/1393.
+    expect(plan.height).toBe(1206);
     expect(plan.gap).toBe(16);
-    expect(plan.panels.map((p) => p.width)).toEqual([408, 407, 405, 404]);
-    expect(plan.panels.map((p) => p.left)).toEqual([0, 424, 847, 1268]);
-    expect(plan.width).toBe(1672);
+    expect(plan.panels.map((p) => p.width)).toEqual([410, 409, 407, 406]);
+    expect(plan.panels.map((p) => p.left)).toEqual([0, 426, 851, 1274]);
+    expect(plan.width).toBe(1680);
     expect(plan.panels.every((p) => p.top === 0)).toBe(true);
   });
 
@@ -128,7 +128,7 @@ describe('hueco automático', () => {
 
   it('el plan expone el hueco ya resuelto, para que viaje en la URL', () => {
     const plan = planLayout(statusWith(REAL.momote), 'row');
-    expect(plan.kind === 'row' && plan.gap).toBe(16);
+    expect(plan.kind === 'row' && plan.gap).toBe(17);
   });
 });
 

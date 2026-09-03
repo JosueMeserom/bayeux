@@ -25,9 +25,18 @@ export function formatFromExt(ext: string): StripFormat | undefined {
 }
 
 /** Clave de caché: id + layout + formato + versión del algoritmo. */
-export function cacheKey(id: string, kind: 'row' | 'grid', format: StripFormat, gap: number): string {
-  return `${id}-${kind}-g${gap}-${ALGO_VERSION}.${EXT[format]}`;
+export function cacheKey(
+  id: string,
+  kind: 'row' | 'grid',
+  format: StripFormat,
+  gap: number,
+  quality = calidadPorDefecto(format),
+): string {
+  return `${id}-${kind}-g${gap}-q${quality}-${ALGO_VERSION}.${EXT[format]}`;
 }
+
+export const calidadPorDefecto = (format: StripFormat) =>
+  format === 'webp' ? config.webpQuality : config.jpegQuality;
 
 /** Lienzo transparente si BG_COLOR es `transparent`; si no, el color pedido. */
 function canvasBackground() {
@@ -49,8 +58,9 @@ export function readCached(
   kind: 'row' | 'grid',
   format: StripFormat,
   gap: number,
+  quality?: number,
 ): Promise<Buffer | null> {
-  return readFile(join(config.cacheDir, cacheKey(id, kind, format, gap))).catch(() => null);
+  return readFile(join(config.cacheDir, cacheKey(id, kind, format, gap, quality))).catch(() => null);
 }
 
 /** Composición pura: mismos buffers dentro, mismo JPEG fuera. Sin red, testeable. */
@@ -58,6 +68,7 @@ export async function composePanels(
   plan: Extract<Plan, { kind: 'row' | 'grid' }>,
   buffers: Buffer[],
   format: StripFormat = 'webp',
+  quality = calidadPorDefecto(format),
 ): Promise<Buffer> {
   const composites = await Promise.all(
     plan.panels.map(async (panel, i) => ({
@@ -77,15 +88,18 @@ export async function composePanels(
 
   // WebP conserva el canal alfa; el JPEG no, así que ahí el hueco se aplana a negro.
   return format === 'webp'
-    ? canvas.webp({ quality: config.webpQuality, effort: 4 }).toBuffer()
+    ? canvas.webp({ quality, effort: 4 }).toBuffer()
     : canvas
         .flatten({ background: '#000000' })
-        .jpeg({ quality: config.jpegQuality, progressive: true, mozjpeg: true })
+        .jpeg({ quality, progressive: true, mozjpeg: true })
         .toBuffer();
 }
 
-const compose = async (plan: Extract<Plan, { kind: 'row' | 'grid' }>, format: StripFormat) =>
-  composePanels(plan, await Promise.all(plan.panels.map((p) => fetchImage(p.url))), format);
+const compose = async (
+  plan: Extract<Plan, { kind: 'row' | 'grid' }>,
+  format: StripFormat,
+  quality: number,
+) => composePanels(plan, await Promise.all(plan.panels.map((p) => fetchImage(p.url))), format, quality);
 
 // Deduplicación en vuelo: dos peticiones simultáneas al mismo id componen una vez.
 const inFlight = new Map<string, Promise<Buffer>>();
@@ -114,18 +128,19 @@ export async function renderStrip(
   plan: Extract<Plan, { kind: 'row' | 'grid' }>,
   format: StripFormat,
   gap: number,
+  quality = calidadPorDefecto(format),
 ): Promise<Buffer> {
-  const key = cacheKey(id, plan.kind, format, gap);
+  const key = cacheKey(id, plan.kind, format, gap, quality);
   const path = join(config.cacheDir, key);
 
-  const cached = await readCached(id, plan.kind, format, gap);
+  const cached = await readCached(id, plan.kind, format, gap, quality);
   if (cached) return cached;
 
   const pending = inFlight.get(key);
   if (pending) return pending;
 
   const work = (async () => {
-    const buf = await compose(plan, format);
+    const buf = await compose(plan, format, quality);
     // Escritura atómica: un rename evita servir un JPEG a medias si el proceso muere.
     const tmp = `${path}.${createHash('sha1').update(key).digest('hex').slice(0, 8)}.tmp`;
     await mkdir(config.cacheDir, { recursive: true });

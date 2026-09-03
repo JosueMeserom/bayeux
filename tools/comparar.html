@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayeux · comparar ajustes</title>
+<style>
+  :root {
+    --rosa: #eb459e; --azul: #2b92f0; --verde: #00c2a8;
+    --fondo: #0c0e14; --panel: #161a24; --linea: #232936;
+    --texto: #eef1f7; --suave: #99a3b8; --tenue: #667089;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --fondo: #fbfbfd; --panel: #fff; --linea: #e3e6ee;
+      --texto: #10131a; --suave: #4d5568; --tenue: #7b8399;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1.5rem; background: var(--fondo); color: var(--texto);
+    font: 400 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
+  .nota { color: var(--tenue); font-size: .88rem; max-width: 80ch; margin: 0 0 1.5rem; }
+  .nota b { color: var(--suave); }
+
+  fieldset { border: 1px solid var(--linea); border-radius: 12px; padding: 1rem 1.1rem; margin: 0 0 1rem; background: var(--panel); }
+  legend { padding: 0 .5rem; font-weight: 600; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; color: var(--tenue); }
+  .campos { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: flex-end; }
+  label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--suave); }
+  input, select {
+    padding: .5rem .65rem; border-radius: 8px; border: 1px solid var(--linea);
+    background: var(--fondo); color: var(--texto); font: inherit; font-size: .9rem;
+  }
+  input[type="number"] { width: 6.5rem; }
+  input.ancho { width: 26rem; max-width: 100%; }
+  button {
+    padding: .55rem 1.1rem; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--azul); color: #fff; font: inherit; font-weight: 600;
+  }
+  button:hover { filter: brightness(1.1); }
+
+  .marco { display: grid; gap: 1.2rem; }
+  @media (min-width: 62rem) { .marco { grid-template-columns: 1fr 1fr; } }
+  .lado h2 { font-size: .95rem; margin: 0 0 .5rem; display: flex; gap: .6rem; align-items: baseline; }
+  .lado h2 span { font-weight: 400; color: var(--tenue); font-size: .85rem; }
+  .caja { border: 1px solid var(--linea); border-radius: 10px; background: var(--panel); padding: .5rem; overflow: auto; }
+  .caja img { display: block; max-width: none; }
+  .caja.ajustar img { max-width: 100%; height: auto; }
+  .dato { font-size: .82rem; color: var(--tenue); margin-top: .4rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .error { color: var(--rosa); }
+</style>
+</head>
+<body>
+
+<h1>Comparar ajustes de composición</h1>
+<p class="nota">
+  Dos veces la misma tira con parámetros distintos, para ver cuánto se nota.
+  <b>Aviso:</b> esto NO es la imagen que sirve Discord. Discord se descarga la nuestra,
+  la reescala a su caja y la vuelve a comprimir en su propio proxy, y esa URL va firmada,
+  así que no se puede reproducir desde fuera. Lo que hace el control de <b>ancho simulado</b>
+  es reescalar en el navegador, que se acerca pero no incluye la recompresión de Discord.
+</p>
+
+<fieldset>
+  <legend>Post</legend>
+  <div class="campos">
+    <label>Enlace de X o id del post
+      <input id="post" class="ancho" type="text" spellcheck="false"
+             value="https://x.com/makokoto8/status/2095001889784164697">
+    </label>
+    <label>Host de Bayeux
+      <input id="host" type="text" spellcheck="false" value="bayeux.ultrak.dynu.net">
+    </label>
+    <label>Ancho simulado
+      <input id="ancho" type="number" value="400" min="100" max="4000" step="20">
+    </label>
+    <button id="ir" type="button">Comparar</button>
+  </div>
+</fieldset>
+
+<div class="marco">
+  <div class="lado">
+    <fieldset>
+      <legend>A</legend>
+      <div class="campos">
+        <label>Layout <select class="layout" data-l="a">
+          <option value="">auto</option><option value="row">row</option><option value="grid">grid</option>
+        </select></label>
+        <label>Hueco <input class="gap" data-l="a" type="text" value="" placeholder="auto"></label>
+        <label>Calidad <input class="q" data-l="a" type="number" value="82" min="40" max="100"></label>
+      </div>
+    </fieldset>
+    <h2>A <span id="datoA" class="dato"></span></h2>
+    <div class="caja ajustar" id="cajaA"></div>
+  </div>
+
+  <div class="lado">
+    <fieldset>
+      <legend>B</legend>
+      <div class="campos">
+        <label>Layout <select class="layout" data-l="b">
+          <option value="">auto</option><option value="row">row</option><option value="grid">grid</option>
+        </select></label>
+        <label>Hueco <input class="gap" data-l="b" type="text" value="" placeholder="auto"></label>
+        <label>Calidad <input class="q" data-l="b" type="number" value="92" min="40" max="100"></label>
+      </div>
+    </fieldset>
+    <h2>B <span id="datoB" class="dato"></span></h2>
+    <div class="caja ajustar" id="cajaB"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PATRON = /(?:^|\/)([0-9]{5,25})(?:\/|$|\?)/;
+
+  function idDe(texto) {
+    var t = texto.trim();
+    if (/^[0-9]{5,25}$/.test(t)) return t;
+    var m = PATRON.exec(t);
+    return m ? m[1] : null;
+  }
+
+  function urlDe(host, id, lado) {
+    var layout = document.querySelector('.layout[data-l="' + lado + '"]').value;
+    var gap = document.querySelector('.gap[data-l="' + lado + '"]').value.trim();
+    var q = document.querySelector('.q[data-l="' + lado + '"]').value.trim();
+    var p = [];
+    if (layout) p.push('layout=' + layout);
+    if (gap) p.push('gap=' + encodeURIComponent(gap));
+    if (q) p.push('q=' + encodeURIComponent(q));
+    return 'https://' + host + '/strip/' + id + '.webp' + (p.length ? '?' + p.join('&') : '');
+  }
+
+  async function pintar(lado, url, ancho) {
+    var caja = document.getElementById('caja' + lado.toUpperCase());
+    var dato = document.getElementById('dato' + lado.toUpperCase());
+    caja.textContent = '';
+    dato.className = 'dato';
+    dato.textContent = 'cargando...';
+
+    try {
+      var t0 = performance.now();
+      var r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var blob = await r.blob();
+      var ms = Math.round(performance.now() - t0);
+
+      var img = new Image();
+      img.src = URL.createObjectURL(blob);
+      await img.decode();
+
+      // El ancho simulado sólo reescala: Discord además recomprime.
+      img.style.width = Math.min(ancho, img.naturalWidth) + 'px';
+      img.style.height = 'auto';
+      caja.appendChild(img);
+
+      dato.textContent = img.naturalWidth + 'x' + img.naturalHeight +
+        '  ·  ' + (blob.size / 1024).toFixed(0) + ' KB  ·  ' + ms + ' ms';
+    } catch (e) {
+      dato.className = 'dato error';
+      dato.textContent = String(e.message || e);
+    }
+  }
+
+  function comparar() {
+    var id = idDe(document.getElementById('post').value);
+    var host = document.getElementById('host').value.trim();
+    var ancho = Number(document.getElementById('ancho').value) || 400;
+    if (!id || !host) {
+      document.getElementById('datoA').textContent = 'enlace o id no reconocido';
+      return;
+    }
+    pintar('a', urlDe(host, id, 'a'), ancho);
+    pintar('b', urlDe(host, id, 'b'), ancho);
+  }
+
+  document.getElementById('ir').addEventListener('click', comparar);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') comparar();
+  });
+  comparar();
+})();
+</script>
+
+</body>
+</html>

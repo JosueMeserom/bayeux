@@ -16,7 +16,14 @@ import {
   type LayoutMode,
   type LayoutOpts,
 } from './layout.js';
-import { formatFromExt, pruneCache, readCached, renderStrip, type StripFormat } from './strip.js';
+import {
+  calidadPorDefecto,
+  formatFromExt,
+  pruneCache,
+  readCached,
+  renderStrip,
+  type StripFormat,
+} from './strip.js';
 
 const HANDLE = /^[A-Za-z0-9_]{1,15}$/;
 const STATUS_ID = /^[0-9]{1,25}$/;
@@ -170,17 +177,27 @@ export async function build() {
           // Immutable: la clave incluye la versión del algoritmo, así que el
           // contenido de una URL dada no cambia nunca. Discord la cachea y la re-sirve.
           .header('cache-control', 'public, max-age=31536000, immutable')
+          // Endpoint de imagen público: permitir leerlo desde otra página deja
+          // que herramientas como tools/comparar.html midan el peso.
+          .header('access-control-allow-origin', '*')
           .header('x-bayeux-layout', mode)
           .send(body);
 
       // Con el layout fijado en la URL la clave de caché es conocida: un acierto
       // se sirve sin llamar a la API upstream.
       const gap = resolveGap(req.query);
+      // `?q=` sólo existe en esta ruta: no cambia las dimensiones, así que no
+      // entra en el embed. Sirve para comparar ajustes de compresión sin tocar
+      // la configuración del servicio.
+      const bruto = Number((req.query as { q?: unknown }).q);
+      const quality = Number.isFinite(bruto)
+        ? Math.min(100, Math.max(40, Math.round(bruto)))
+        : calidadPorDefecto(format);
       // Sólo se puede saltar la API si el hueco viene ya resuelto en la URL,
       // porque en `auto` depende de la altura, que sale de los metadatos.
       const pinned = req.query.layout;
       if ((pinned === 'row' || pinned === 'grid') && typeof gap === 'number') {
-        const hit = await readCached(id, pinned, format, gap);
+        const hit = await readCached(id, pinned, format, gap, quality);
         if (hit) return send(pinned, hit);
       }
 
@@ -193,7 +210,7 @@ export async function build() {
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
 
       try {
-        return send(plan.kind, await renderStrip(id, plan, format, plan.gap));
+        return send(plan.kind, await renderStrip(id, plan, format, plan.gap, quality));
       } catch (err) {
         // Degradar antes que reventar: la primera foto sola sigue siendo un embed útil.
         req.log.warn({ id, err: (err as Error).message }, 'composición fallida');

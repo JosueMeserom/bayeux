@@ -43,7 +43,7 @@ describe('meta etiquetas del embed', () => {
     const out = embedHtml(status, ancho, BASE);
     expect(metaOf(out, 'og:image')).toContain('gap=24');
     // 4 paneles y 3 huecos: 8px más que con el hueco automático de 16.
-    expect(Number(metaOf(out, 'og:image:width'))).toBe(1672 + 3 * 8);
+    expect(Number(metaOf(out, 'og:image:width'))).toBe(1680 + 3 * 8);
   });
 
   it('twitter:card es summary_large_image', () => {
@@ -191,7 +191,7 @@ describe('documento estilo Mastodon (el camino de Discord)', () => {
     const media = doc.media_attachments as { url: string; meta: { original: { width: number } } }[];
     expect(media).toHaveLength(1);
     expect(media[0]!.url).toBe(`${BASE}/strip/x.webp`);
-    expect(media[0]!.meta.original.width).toBe(1672);
+    expect(media[0]!.meta.original.width).toBe(1680);
   });
 
   it('mete las estadísticas en el cuerpo, en negrita y con &ensp;', () => {
