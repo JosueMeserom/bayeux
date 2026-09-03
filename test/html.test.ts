@@ -36,20 +36,19 @@ describe('meta etiquetas del embed', () => {
     expect(metaOf(html, 'twitter:card')).toBe('summary_large_image');
   });
 
-  it('og:title es el autor: con el oEmbed en rich sube a la línea de autor', () => {
-    expect(metaOf(html, 'og:title')).toBe('Autora Ejemplo (@autor)');
-  });
-
-  it('og:description es el texto del post, que Discord pinta como título', () => {
-    expect(metaOf(html, 'og:description')).toBe('texto del post');
-  });
-
-  it('el oEmbed va en rich, que es lo que desplaza las ranuras y saca el pie', () => {
+  it('el autor va en el oEmbed, que es la primera línea del embed', () => {
     const o = oembedJson(status);
-    expect(o.type).toBe('rich');
-    expect(o.author_name).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
+    expect(o.author_name).toBe('Autora Ejemplo (@autor)');
     expect(o.author_url).toBe('https://x.com/autor/status/1234567890123456789');
-    expect(o.provider_name).toBe('Bayeux');
+  });
+
+  it('og:title es el texto del post y og:description las estadísticas', () => {
+    expect(metaOf(html, 'og:title')).toBe('texto del post');
+    expect(metaOf(html, 'og:description')).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
+  });
+
+  it('no declara og:site_name: esa línea gris tapaba el sitio del autor', () => {
+    expect(metaOf(html, 'og:site_name')).toBeUndefined();
   });
 
   it('declara el oEmbed y el avatar del autor', () => {
@@ -62,8 +61,7 @@ describe('meta etiquetas del embed', () => {
     const mute = { ...status, text: '   ' };
     const out = embedHtml(mute, plan, BASE);
     expect(metaOf(out, 'og:title')).toBe('Autora Ejemplo (@autor)');
-    expect(metaOf(out, 'og:description')).toBeUndefined();
-    expect(oembedJson(mute).author_name).toContain('💬 55');
+    expect(oembedJson(mute).author_name).toBe('Autora Ejemplo (@autor)');
   });
 
   it('incluye refresh y enlace visible al post original', () => {
@@ -75,7 +73,7 @@ describe('meta etiquetas del embed', () => {
     const evil = { ...status, text: '<script>alert(1)</script>' };
     const out = embedHtml(evil, plan, BASE);
     expect(out).not.toContain('<script>');
-    expect(metaOf(out, 'og:description')).toContain('&#60;script&#62;');
+    expect(metaOf(out, 'og:title')).toContain('&#60;script&#62;');
   });
 
   it('publica la fecha del post para el pie del embed', () => {
@@ -134,6 +132,11 @@ describe('estadísticas', () => {
   it('omite los contadores que la API no devuelva', () => {
     const parcial = { ...statusWith(REAL.momote), reposts: undefined, views: undefined };
     expect(statsLine(parcial)).toBe('💬 55   ❤️ 18.1K');
+  });
+
+  it('omite también los que vengan a cero, como hace FxEmbed', () => {
+    // Un post sin respuestas no debe gastar sitio en un «💬 0».
+    expect(statsLine({ ...statusWith(REAL.momote), replies: 0 })).toBe('🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
   });
 
   it('sin ningún contador, la línea queda vacía en vez de con adornos sueltos', () => {
