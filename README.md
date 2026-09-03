@@ -436,9 +436,19 @@ const HOST = 'bayeux.ultrak.dynu.net';   // tu subdominio
 const PARAMS = '';                       // p.ej. '?layout=row' si lo quieres siempre
 ```
 
-⚠️ **Nota**: X reescribe su interfaz cada poco. El script se apoya sólo en dos cosas que
-llevan años estables, el `article` de cada post y los `data-testid` de sus botones. Si
-algún día deja de aparecer el botón, lo más probable es que hayan cambiado uno de los dos.
+El botón **sólo sale donde sirve de algo**: en posts con dos o más fotos propias y sin
+vídeo. Un post de sólo texto, o uno que cita a otro con dibujos, no lo enseña, porque ahí
+no hay ninguna tira que coser. Las fotos de una cita se distinguen porque van dentro de un
+`div[role="link"]` y las del propio post no.
+
+⚠️ **Nota**: X reescribe su interfaz cada poco. El script se apoya sólo en tres cosas que
+llevan años estables: el `article` de cada post, los `data-testid` de sus botones y el de
+las fotos. Si algún día deja de aparecer el botón, lo más probable es que hayan cambiado
+alguna de las tres.
+
+Tampoco fija medidas propias: **mide el icono de un botón vecino y se ajusta a él**, porque
+X usa 18,75px en la línea de tiempo y 22,5px en la página de un post. Y se estira a todo el
+alto de la barra en vez de llevar altura fija, que es lo que lo descuadraba 6px.
 
 ### Comparar ajustes de compresión
 

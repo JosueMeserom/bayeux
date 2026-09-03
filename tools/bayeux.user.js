@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.1
+// @version      1.0.2
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -39,24 +39,32 @@
    * funcionar, lo más probable es que hayan cambiado uno de esos dos.
    */
 
+  /*
+   * La estructura copia la de X: un contenedor que se estira a todo el alto de
+   * la barra, y dentro un círculo del tamaño del icono. Eso es lo que hace que
+   * encaje en las dos barras sin ajustes a mano, porque las dos son
+   * `align-items: stretch` pero con alturas muy distintas (34,8 en la línea de
+   * tiempo, 48 en la página de un post). Un alto fijo no se estira y el icono
+   * acababa 6px por encima de los demás.
+   */
   const css = document.createElement('style');
   css.textContent = `
     .bayeux-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 34.75px; height: 34.75px;
-      /* Ni margen negativo ni align-self propio: la barra del post en su página
-         alinea distinto que la de la línea de tiempo, así que cualquier ajuste
-         vertical acierta en una y falla en la otra. Sin imponer nada, el botón
-         se coloca como uno más de sus hermanos, que es lo que queremos. */
-      flex: 0 0 auto; margin: 0;
-      border: 0; padding: 0; background: none; cursor: pointer;
-      color: inherit; opacity: .6; border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center;
+      align-self: stretch; flex: 0 0 auto;
+      margin: 0; border: 0; padding: 0; background: none;
+      cursor: pointer; color: inherit;
+    }
+    .bayeux-ico {
+      display: flex; align-items: center; justify-content: center;
+      width: var(--bayeux-circulo, 34.75px); height: var(--bayeux-circulo, 34.75px);
+      border-radius: 9999px; opacity: .6;
       transition: opacity .12s, background-color .12s, color .12s;
     }
-    .bayeux-btn:hover { opacity: 1; background-color: rgba(43,146,240,.1); color: #2b92f0; }
-    .bayeux-btn.ok { opacity: 1; color: #00c2a8; background-color: rgba(0,194,168,.12); }
-    .bayeux-btn.mal { opacity: 1; color: #eb459e; background-color: rgba(235,69,158,.12); }
-    .bayeux-btn svg { width: 18.75px; height: 18.75px; fill: currentColor; }
+    .bayeux-btn:hover .bayeux-ico { opacity: 1; background-color: rgba(43,146,240,.1); color: #2b92f0; }
+    .bayeux-btn.ok .bayeux-ico { opacity: 1; color: #00c2a8; background-color: rgba(0,194,168,.12); }
+    .bayeux-btn.mal .bayeux-ico { opacity: 1; color: #eb459e; background-color: rgba(235,69,158,.12); }
+    .bayeux-btn svg { width: var(--bayeux-icono, 18.75px); height: var(--bayeux-icono, 18.75px); fill: currentColor; }
   `;
   document.head.appendChild(css);
 
@@ -92,6 +100,33 @@
     return m ? { handle: m[1], id: m[2] } : null;
   }
 
+  /**
+   * Tamaño del icono que usan los botones vecinos.
+   *
+   * No es siempre el mismo: 18,75px en la línea de tiempo y 22,5px en la página
+   * de un post. En vez de elegir uno y equivocarse en la otra, se mide.
+   */
+  function tamanoIcono(barra) {
+    const modelo = barra.querySelector('svg');
+    const alto = modelo ? modelo.getBoundingClientRect().height : 0;
+    return alto > 4 ? alto : 18.75;
+  }
+
+  /**
+   * Fotos del propio post, sin contar las de un post citado.
+   *
+   * Comprobado sobre el DOM real: las fotos de una cita están dentro de un
+   * `div[role="link"]` y las del post no. Sin este filtro, un post de sólo
+   * texto que cita a otro con dibujos sacaría botón para nada.
+   */
+  function fotosPropias(article) {
+    return [...article.querySelectorAll('[data-testid="tweetPhoto"]')]
+      .filter((f) => !f.closest('div[role="link"]'));
+  }
+
+  const tieneVideo = (article) =>
+    !!article.querySelector('[data-testid="videoPlayer"], [data-testid="videoComponent"]');
+
   /** La barra de acciones es el grupo que contiene el botón de responder. */
   function barraDe(article) {
     for (const g of article.querySelectorAll('div[role="group"]')) {
@@ -117,7 +152,7 @@
     }
   }
 
-  function crearBoton(handle, id) {
+  function crearBoton(handle, id, icono) {
     const url = `https://${HOST}/${handle}/status/${id}${PARAMS}`;
 
     const b = document.createElement('button');
@@ -125,7 +160,14 @@
     b.type = 'button';
     b.title = `Copiar enlace de Bayeux\n${url}`;
     b.setAttribute('aria-label', 'Copiar enlace de Bayeux');
-    b.innerHTML = ICONO_TIRA;
+    // El círculo del hover guarda la misma proporción con el icono que en X.
+    b.style.setProperty('--bayeux-icono', `${icono}px`);
+    b.style.setProperty('--bayeux-circulo', `${Math.round(icono * 1.853 * 10) / 10}px`);
+
+    const ico = document.createElement('span');
+    ico.className = 'bayeux-ico';
+    ico.innerHTML = ICONO_TIRA;
+    b.appendChild(ico);
 
     b.addEventListener('click', async (e) => {
       // Sin esto, el clic abre el post: en la TL el article entero es un enlace.
@@ -133,11 +175,11 @@
       e.stopPropagation();
 
       const ok = await copiar(url);
-      b.innerHTML = ok ? ICONO_OK : ICONO_TIRA;
+      ico.innerHTML = ok ? ICONO_OK : ICONO_TIRA;
       b.className = `bayeux-btn ${ok ? 'ok' : 'mal'}`;
       b.title = ok ? 'Copiado' : 'No se pudo copiar';
       setTimeout(() => {
-        b.innerHTML = ICONO_TIRA;
+        ico.innerHTML = ICONO_TIRA;
         b.className = 'bayeux-btn';
         b.title = `Copiar enlace de Bayeux\n${url}`;
       }, 1400);
@@ -151,11 +193,15 @@
     const barra = barraDe(article);
     if (!barra) return; // aún sin pintar del todo; ya volverá el observador
 
-    const datos = datosDe(article);
+    // Sin dos fotos propias no hay tira que coser, así que el botón sobra.
+    const datos = fotosPropias(article).length >= 2 && !tieneVideo(article)
+      ? datosDe(article)
+      : null;
+
     article.setAttribute(MARCA, datos ? '1' : '0');
     if (!datos) return;
 
-    barra.appendChild(crearBoton(datos.handle, datos.id));
+    barra.appendChild(crearBoton(datos.handle, datos.id, tamanoIcono(barra)));
   }
 
   function barrer() {
