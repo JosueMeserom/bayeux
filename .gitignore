@@ -6,3 +6,6 @@ logs/
 *.log
 .env
 .DS_Store
+
+# Version larga del README, generada por Claude. Se queda en local como referencia.
+README_full_Claude.md
