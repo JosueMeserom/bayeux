@@ -81,7 +81,8 @@ señal en los metadatos que las distinga de un dibujo partido. Para eso está
 |---|---|
 | `GET /:handle/status/:id` | HTML con meta etiquetas para bots, `302` a x.com para humanos |
 | `GET /:handle/status/:id/*` | Igual, tragándose sufijos como `/photo/1` |
-| `GET /strip/:id.jpg` | La imagen cosida. Acepta `?layout=row\|grid\|auto` |
+| `GET /strip/:id.webp` | La imagen cosida. Acepta `?layout=row\|grid\|auto`. También `.jpg` |
+| `GET /oembed?id=` | Respuesta oEmbed: línea de autor y pie del embed |
 | `GET /health` | Comprobación de vida, sin dependencias externas |
 | `GET /` | Landing breve |
 
@@ -245,8 +246,9 @@ para el fichero completo comentado.
 | `MAX_PIXELS` | `12000000` | Presupuesto del lienzo. Si se pasa, la altura baja sola |
 | `MAX_DOWNLOAD_BYTES` | `12582912` | Tope por imagen descargada |
 | `GAP` | `6` | Separación entre paneles, en píxeles |
-| `BG_COLOR` | `#000000` | Color del lienzo |
-| `JPEG_QUALITY` | `88` | Calidad del JPEG progresivo |
+| `BG_COLOR` | `transparent` | Color del hueco. `transparent` lo deja del color del chat |
+| `WEBP_QUALITY` | `82` | Calidad del WebP que se anuncia en el `og:image` |
+| `JPEG_QUALITY` | `88` | Calidad del JPEG, que se sigue sirviendo en `/strip/:id.jpg` |
 | `ROW_HEIGHT_TOLERANCE` | `0.02` | Dispersión de alturas tolerada: `(max-min)/max` |
 | `ROW_ASPECT_TOLERANCE` | *(desactivada)* | Lo mismo sobre `w/h`. Ver nota abajo |
 
@@ -314,6 +316,17 @@ Sin vender humo:
   4 paneles verticales entra ahí como una franja fina: se intuye la continuidad,
   pero el detalle real solo se ve al hacer clic y abrir la imagen. Esto no tiene
   arreglo desde el servicio; es cómo renderiza Discord.
+- **La tira ocupa menos alto que una galería nativa, y es inevitable.** Como la
+  tira es ancha, agota los ~400px de ancho de la caja antes que los 300 de alto,
+  y acaba en torno a 200px. Una cuadrícula, al ser más cuadrada, llega a los 300.
+  Ningún formato de imagen ni relleno lo cambia: escalar es proporcional.
+
+  Hay una alternativa, y conviene entender por qué no se usa. Si un servicio
+  **no** declara `og:image`, Discord monta su propia galería con las imágenes
+  originales, que sale más grande y con los huecos del color del chat. Es lo que
+  hace FxEmbed con Discord: le cede la ranura de la imagen. Pero esa galería es
+  precisamente la cuadrícula que rompe los dibujos partidos, que es el motivo de
+  existir de Bayeux. **O tira propia, o galería nativa: es la misma ranura.**
 - **La heurística no lee las imágenes**, solo sus dimensiones. Dos fotos sin
   relación con la misma altura saldrán en fila. `?layout=grid` lo corrige.
 - **Máximo 4 fotos**, que es el tope de X de todos modos.

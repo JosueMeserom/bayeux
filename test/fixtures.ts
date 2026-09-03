@@ -20,7 +20,17 @@ export function statusWith(
     id: '1234567890123456789',
     url: 'https://x.com/autor/status/1234567890123456789',
     text: 'texto del post',
-    author: { name: 'Autora Ejemplo', screen_name: 'autor' },
+    // Contadores y fecha del post real de @Momotexx, para no inventar cifras.
+    created_timestamp: 1787689213,
+    replies: 55,
+    reposts: 1519,
+    likes: 18115,
+    views: 168241,
+    author: {
+      name: 'Autora Ejemplo',
+      screen_name: 'autor',
+      avatar_url: 'https://pbs.twimg.com/profile_images/1/a_200x200.jpg',
+    },
     media: {
       photos,
       videos: Array.from({ length: extra.videos ?? 0 }, () => ({

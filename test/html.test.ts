@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
-import { embedHtml, errorHtml } from '../src/html.js';
+import { authorLine, compact, embedHtml, errorHtml, oembedJson, statsLine } from '../src/html.js';
 import { planLayout } from '../src/layout.js';
 import { composePanels } from '../src/strip.js';
 import { REAL, statusWith } from './fixtures.js';
@@ -24,7 +24,7 @@ describe('meta etiquetas del embed', () => {
   });
 
   it('og:image sale por el host de la petición', () => {
-    expect(metaOf(html, 'og:image')).toBe(`${BASE}/strip/1234567890123456789.jpg?layout=row`);
+    expect(metaOf(html, 'og:image')).toBe(`${BASE}/strip/1234567890123456789.webp?layout=row`);
   });
 
   it('el og:image fija el layout ya resuelto', () => {
@@ -36,8 +36,24 @@ describe('meta etiquetas del embed', () => {
     expect(metaOf(html, 'twitter:card')).toBe('summary_large_image');
   });
 
-  it('el título lleva nombre y @handle', () => {
-    expect(metaOf(html, 'og:title')).toBe('Autora Ejemplo (@autor)');
+  it('el título es el texto del post, para que Discord lo pinte en grande', () => {
+    expect(metaOf(html, 'og:title')).toBe('texto del post');
+  });
+
+  it('el autor va en el oEmbed, que es lo que le da su propia línea con icono', () => {
+    expect(oembedJson(status).author_name).toBe('Autora Ejemplo (@autor)');
+    expect(oembedJson(status).author_url).toBe('https://x.com/autor/status/1234567890123456789');
+  });
+
+  it('declara el oEmbed y el avatar del autor', () => {
+    expect(html).toContain('type="application/json+oembed"');
+    expect(html).toContain('/oembed?id=1234567890123456789');
+    expect(html).toContain('rel="apple-touch-icon"');
+  });
+
+  it('un post sin texto se queda con el autor de título, no mudo', () => {
+    const mute = { ...status, text: '   ' };
+    expect(metaOf(embedHtml(mute, plan, BASE), 'og:title')).toBe('Autora Ejemplo (@autor)');
   });
 
   it('incluye refresh y enlace visible al post original', () => {
@@ -49,7 +65,15 @@ describe('meta etiquetas del embed', () => {
     const evil = { ...status, text: '<script>alert(1)</script>' };
     const out = embedHtml(evil, plan, BASE);
     expect(out).not.toContain('<script>');
-    expect(metaOf(out, 'og:description')).toContain('&#60;script&#62;');
+    expect(metaOf(out, 'og:title')).toContain('&#60;script&#62;');
+  });
+
+  it('la descripción son las estadísticas del post', () => {
+    expect(metaOf(html, 'og:description')).toBe('💬 55   🔁 1.5K   ❤️ 18.1K   👁️ 168.2K');
+  });
+
+  it('publica la fecha del post para el pie del embed', () => {
+    expect(metaOf(html, 'article:published_time')).toBe('2026-08-25T20:20:13.000Z');
   });
 
   it('con una sola foto enlaza pbs.twimg.com directamente', () => {
@@ -88,6 +112,35 @@ describe('las dimensiones declaradas coinciden con la imagen real', () => {
       expect(Number(metaOf(html, 'og:image:height'))).toBe(meta.height);
     });
   }
+});
+
+describe('estadísticas', () => {
+  it('abrevia como los contadores de X', () => {
+    expect(compact(55)).toBe('55');
+    expect(compact(999)).toBe('999');
+    expect(compact(1000)).toBe('1K');
+    expect(compact(1519)).toBe('1.5K');
+    expect(compact(18115)).toBe('18.1K');
+    expect(compact(168241)).toBe('168.2K');
+    expect(compact(2_400_000)).toBe('2.4M');
+  });
+
+  it('omite los contadores que la API no devuelva', () => {
+    const parcial = { ...statusWith(REAL.momote), reposts: undefined, views: undefined };
+    expect(statsLine(parcial)).toBe('💬 55   ❤️ 18.1K');
+  });
+
+  it('sin ningún contador, la línea queda vacía en vez de con adornos sueltos', () => {
+    const vacio = {
+      ...statusWith(REAL.momote),
+      replies: undefined,
+      reposts: undefined,
+      likes: undefined,
+      views: undefined,
+    };
+    expect(statsLine(vacio)).toBe('');
+    expect(authorLine(vacio)).toBe('Autora Ejemplo (@autor)');
+  });
 });
 
 describe('embed de error', () => {

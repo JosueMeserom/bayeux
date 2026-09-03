@@ -34,7 +34,13 @@ export interface FxStatus {
   url: string;
   text: string;
   possibly_sensitive?: boolean;
-  author: { name: string; screen_name: string };
+  /** Segundos desde epoch. Alimenta la fecha del pie del embed. */
+  created_timestamp?: number;
+  replies?: number;
+  reposts?: number;
+  likes?: number;
+  views?: number;
+  author: { name: string; screen_name: string; avatar_url?: string };
   media?: {
     all?: unknown[];
     photos?: FxPhoto[];

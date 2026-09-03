@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import type { FxStatus } from './fx.js';
 import type { Plan } from './layout.js';
+import { EXT, STRIP_FORMAT } from './strip.js';
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -8,11 +9,53 @@ export function escapeHtml(s: string): string {
 
 const truncate = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
 
+/** 1519 → «1.5K», 168241 → «168.2K». Como los contadores de X. */
+export function compact(n: number): string {
+  if (n < 1000) return String(n);
+  const [value, suffix] = n < 1_000_000 ? [n / 1000, 'K'] : [n / 1_000_000, 'M'];
+  return `${value.toFixed(1).replace(/\.0$/, '')}${suffix}`;
+}
+
+/** Línea de estadísticas del post. Omite los contadores que no vengan. */
+export function statsLine(status: FxStatus): string {
+  const parts: string[] = [];
+  if (status.replies !== undefined) parts.push(`💬 ${compact(status.replies)}`);
+  if (status.reposts !== undefined) parts.push(`🔁 ${compact(status.reposts)}`);
+  if (status.likes !== undefined) parts.push(`❤️ ${compact(status.likes)}`);
+  if (status.views !== undefined) parts.push(`👁️ ${compact(status.views)}`);
+  return parts.join('   ');
+}
+
+export function authorLine(status: FxStatus): string {
+  return `${status.author.name} (@${status.author.screen_name})`;
+}
+
+/**
+ * Respuesta oEmbed.
+ *
+ * Es el único canal por el que Discord acepta una línea de autor con icono
+ * además del título, y el pie del embed. Sin esto, un enlace solo puede llenar
+ * título y descripción.
+ */
+export function oembedJson(status: FxStatus): Record<string, string> {
+  return {
+    type: 'link',
+    version: '1.0',
+    // Discord pinta esto como la línea de autor, arriba del título.
+    author_name: authorLine(status),
+    author_url: status.url,
+    // Y esto como el pie del embed.
+    provider_name: config.siteName,
+    provider_url: config.repoUrl || status.url,
+    title: authorLine(status),
+  };
+}
+
 const meta = (pairs: [string, string | number | undefined][]) =>
   pairs
     .filter((p): p is [string, string | number] => p[1] !== undefined && p[1] !== '')
     .map(([k, v]) => {
-      const attr = k.startsWith('og:') || k.startsWith('twitter:') ? 'property' : 'name';
+      const attr = /^(og|twitter|article):/.test(k) ? 'property' : 'name';
       return `  <meta ${attr}="${k}" content="${escapeHtml(String(v))}">`;
     })
     .join('\n');
@@ -24,7 +67,7 @@ function imageUrl(id: string, plan: Plan, baseUrl: string): string | undefined {
   if (plan.kind === 'passthrough') return plan.url;
   // El layout ya resuelto va fijado en la URL, para que la imagen servida sea
   // exactamente la que declaran og:image:width/height aunque cambie la heurística.
-  return `${baseUrl}/strip/${id}.jpg?layout=${plan.kind}`;
+  return `${baseUrl}/strip/${id}.${EXT[STRIP_FORMAT]}?layout=${plan.kind}`;
 }
 
 function page(head: string, body: string): string {
@@ -44,31 +87,53 @@ ${body}
 
 export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string {
   const image = imageUrl(status.id, plan, baseUrl);
-  const title = `${status.author.name} (@${status.author.screen_name})`;
+  const author = authorLine(status);
+  const stats = statsLine(status);
   const original = status.url;
 
+  // El texto del post va de título y las estadísticas de descripción: el título
+  // se pinta en grande y el autor sube a su propia línea vía oEmbed. Un post sin
+  // texto se queda con el autor de título para no dejar el embed mudo.
+  const title = status.text.trim() ? truncate(status.text, 250) : author;
+
+  const oembed = `${baseUrl}/oembed?id=${encodeURIComponent(status.id)}`;
+  const published =
+    status.created_timestamp === undefined
+      ? undefined
+      : new Date(status.created_timestamp * 1000).toISOString();
+
   const head = [
-    `<title>${escapeHtml(title)}</title>`,
+    `<title>${escapeHtml(author)}</title>`,
     meta([
       ['og:site_name', config.siteName],
       // Apunta al post real: es lo que hace que el embed de Discord sea clicable al original.
       ['og:url', original],
       ['og:type', 'article'],
       ['og:title', title],
-      ['og:description', truncate(status.text, 300)],
+      ['og:description', stats],
+      // Da la fecha del post al pie del embed.
+      ['article:published_time', published],
       ['og:image', image],
       ['og:image:width', plan.kind === 'none' ? undefined : plan.width],
       ['og:image:height', plan.kind === 'none' ? undefined : plan.height],
       // summary_large_image es lo que hace que Discord use imagen grande y no miniatura.
       ['twitter:card', image ? 'summary_large_image' : 'summary'],
       ['twitter:title', title],
-      ['twitter:description', truncate(status.text, 300)],
+      ['twitter:description', stats],
       ['twitter:image', image],
+      ['twitter:creator', `@${status.author.screen_name}`],
       ['theme-color', config.themeColor],
     ]),
+    // Discord usa el apple-touch-icon como icono de la línea de autor.
+    status.author.avatar_url
+      ? `<link rel="apple-touch-icon" href="${escapeHtml(status.author.avatar_url)}">`
+      : '',
+    `<link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembed)}" title="${escapeHtml(author)}">`,
     `<meta http-equiv="refresh" content="0; url=${escapeHtml(original)}">`,
     `<link rel="canonical" href="${escapeHtml(original)}">`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return page(head, `<p><a href="${escapeHtml(original)}">${escapeHtml(original)}</a></p>`);
 }

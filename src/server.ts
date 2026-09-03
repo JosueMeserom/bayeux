@@ -3,10 +3,10 @@ import rateLimit from '@fastify/rate-limit';
 import { mkdir } from 'node:fs/promises';
 import { config } from './config.js';
 import { FxError, fetchStatus, photosOf } from './fx.js';
-import { embedHtml, errorHtml, landingHtml } from './html.js';
+import { embedHtml, errorHtml, landingHtml, oembedJson } from './html.js';
 import { baseUrlFor, hostLayout, isCrawler } from './http.js';
 import { isLayoutMode, planLayout, type LayoutMode } from './layout.js';
-import { pruneCache, readCached, renderStrip } from './strip.js';
+import { formatFromExt, pruneCache, readCached, renderStrip, type StripFormat } from './strip.js';
 
 const HANDLE = /^[A-Za-z0-9_]{1,15}$/;
 const STATUS_ID = /^[0-9]{1,25}$/;
@@ -49,15 +49,31 @@ export async function build() {
     return landingHtml(baseUrlFor(req.headers, req.protocol));
   });
 
-  app.get<{ Params: { id: string }; Querystring: { layout?: string } }>(
-    '/strip/:id.jpg',
-    async (req, reply) => {
-      const { id } = req.params;
-      if (!STATUS_ID.test(id)) return reply.code(404).send({ error: 'id inválido' });
+  // Discord pide esto cuando ve el <link rel="alternate" ... json+oembed>.
+  // Es el único canal para la línea de autor con icono y el pie del embed.
+  app.get<{ Querystring: { id?: string } }>('/oembed', async (req, reply) => {
+    const id = req.query.id;
+    if (!id || !STATUS_ID.test(id)) return reply.code(404).send({ error: 'id inválido' });
 
-      const jpeg = (mode: 'row' | 'grid', body: Buffer) =>
+    const status = await fetchStatus(id).catch(() => null);
+    if (!status) return reply.code(404).send({ error: 'post no encontrado' });
+
+    return reply
+      .type('application/json; charset=utf-8')
+      .header('cache-control', 'public, max-age=300')
+      .send(oembedJson(status));
+  });
+
+  app.get<{ Params: { file: string }; Querystring: { layout?: string } }>(
+    '/strip/:file',
+    async (req, reply) => {
+      const [id = '', ext = ''] = req.params.file.split('.');
+      const format = formatFromExt(ext);
+      if (!STATUS_ID.test(id) || !format) return reply.code(404).send({ error: 'ruta inválida' });
+
+      const send = (mode: 'row' | 'grid', body: Buffer) =>
         reply
-          .type('image/jpeg')
+          .type(format === 'webp' ? 'image/webp' : 'image/jpeg')
           // Immutable: la clave incluye la versión del algoritmo, así que el
           // contenido de una URL dada no cambia nunca. Discord la cachea y la re-sirve.
           .header('cache-control', 'public, max-age=31536000, immutable')
@@ -68,8 +84,8 @@ export async function build() {
       // se sirve sin llamar a la API upstream.
       const pinned = req.query.layout;
       if (pinned === 'row' || pinned === 'grid') {
-        const hit = await readCached(id, pinned);
-        if (hit) return jpeg(pinned, hit);
+        const hit = await readCached(id, pinned, format);
+        if (hit) return send(pinned, hit);
       }
 
       const status = await fetchStatus(id).catch(() => null);
@@ -81,7 +97,7 @@ export async function build() {
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
 
       try {
-        return jpeg(plan.kind, await renderStrip(id, plan));
+        return send(plan.kind, await renderStrip(id, plan, format));
       } catch (err) {
         // Degradar antes que reventar: la primera foto sola sigue siendo un embed útil.
         req.log.warn({ id, err: (err as Error).message }, 'composición fallida');

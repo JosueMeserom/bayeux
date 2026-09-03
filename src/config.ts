@@ -46,8 +46,11 @@ export const config = {
   maxPixels: num('MAX_PIXELS', 12_000_000),
   maxDownloadBytes: num('MAX_DOWNLOAD_BYTES', 12 * 1024 * 1024),
   gap: num('GAP', 6),
-  bgColor: str('BG_COLOR', '#000000'),
+  // `transparent` deja el hueco del color del chat, como se ve en otros embeds.
+  // Cualquier color de CSS lo pinta fijo.
+  bgColor: str('BG_COLOR', 'transparent'),
   jpegQuality: num('JPEG_QUALITY', 88),
+  webpQuality: num('WEBP_QUALITY', 82),
   // Dispersión relativa de alturas tolerada para considerar una fila: (max-min)/max.
   rowHeightTolerance: num('ROW_HEIGHT_TOLERANCE', 0.02),
   // Igual pero sobre el aspecto (w/h). Por defecto desactivada (Infinity):
@@ -70,4 +73,4 @@ export const config = {
 export type Config = typeof config;
 
 /** Cambiar esto invalida toda la caché en disco sin tener que borrarla a mano. */
-export const ALGO_VERSION = 'v1';
+export const ALGO_VERSION = 'v2';

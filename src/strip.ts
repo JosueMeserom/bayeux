@@ -6,9 +6,36 @@ import { ALGO_VERSION, config } from './config.js';
 import { fetchImage } from './fx.js';
 import type { Plan } from './layout.js';
 
-/** Clave de caché: id + layout + versión del algoritmo. */
-export function cacheKey(id: string, kind: 'row' | 'grid'): string {
-  return `${id}-${kind}-${ALGO_VERSION}.jpg`;
+export type StripFormat = 'jpeg' | 'webp';
+
+export const EXT: Record<StripFormat, string> = { jpeg: 'jpg', webp: 'webp' };
+
+/**
+ * Formato que se anuncia en el og:image. WebP porque conserva el canal alfa
+ * (el hueco entre paneles queda del color del chat) y pesa un 20-25% menos que
+ * el JPEG a calidad equivalente. Discord lo soporta. El .jpg se sigue sirviendo
+ * para no romper embeds ya cacheados.
+ */
+export const STRIP_FORMAT: StripFormat = 'webp';
+
+export function formatFromExt(ext: string): StripFormat | undefined {
+  if (ext === 'webp') return 'webp';
+  if (ext === 'jpg' || ext === 'jpeg') return 'jpeg';
+  return undefined;
+}
+
+/** Clave de caché: id + layout + formato + versión del algoritmo. */
+export function cacheKey(id: string, kind: 'row' | 'grid', format: StripFormat): string {
+  return `${id}-${kind}-${ALGO_VERSION}.${EXT[format]}`;
+}
+
+/** Lienzo transparente si BG_COLOR es `transparent`; si no, el color pedido. */
+function canvasBackground() {
+  const transparent = config.bgColor.toLowerCase() === 'transparent';
+  return {
+    channels: (transparent ? 4 : 3) as 3 | 4,
+    background: transparent ? { r: 0, g: 0, b: 0, alpha: 0 } : config.bgColor,
+  };
 }
 
 /**
@@ -17,14 +44,15 @@ export function cacheKey(id: string, kind: 'row' | 'grid'): string {
  * El og:image siempre lleva el layout fijado, así que con la URL basta para
  * conocer la clave: un acierto de caché no necesita preguntarle nada a la API.
  */
-export function readCached(id: string, kind: 'row' | 'grid'): Promise<Buffer | null> {
-  return readFile(join(config.cacheDir, cacheKey(id, kind))).catch(() => null);
+export function readCached(id: string, kind: 'row' | 'grid', format: StripFormat): Promise<Buffer | null> {
+  return readFile(join(config.cacheDir, cacheKey(id, kind, format))).catch(() => null);
 }
 
 /** Composición pura: mismos buffers dentro, mismo JPEG fuera. Sin red, testeable. */
 export async function composePanels(
   plan: Extract<Plan, { kind: 'row' | 'grid' }>,
   buffers: Buffer[],
+  format: StripFormat = 'webp',
 ): Promise<Buffer> {
   const composites = await Promise.all(
     plan.panels.map(async (panel, i) => ({
@@ -38,37 +66,41 @@ export async function composePanels(
     })),
   );
 
-  return sharp({
-    create: {
-      width: plan.width,
-      height: plan.height,
-      channels: 3,
-      background: config.bgColor,
-    },
-  })
-    .composite(composites)
-    .jpeg({ quality: config.jpegQuality, progressive: true, mozjpeg: true })
-    .toBuffer();
+  const canvas = sharp({
+    create: { width: plan.width, height: plan.height, ...canvasBackground() },
+  }).composite(composites);
+
+  // WebP conserva el canal alfa; el JPEG no, así que ahí el hueco se aplana a negro.
+  return format === 'webp'
+    ? canvas.webp({ quality: config.webpQuality, effort: 4 }).toBuffer()
+    : canvas
+        .flatten({ background: '#000000' })
+        .jpeg({ quality: config.jpegQuality, progressive: true, mozjpeg: true })
+        .toBuffer();
 }
 
-const compose = async (plan: Extract<Plan, { kind: 'row' | 'grid' }>) =>
-  composePanels(plan, await Promise.all(plan.panels.map((p) => fetchImage(p.url))));
+const compose = async (plan: Extract<Plan, { kind: 'row' | 'grid' }>, format: StripFormat) =>
+  composePanels(plan, await Promise.all(plan.panels.map((p) => fetchImage(p.url))), format);
 
 // Deduplicación en vuelo: dos peticiones simultáneas al mismo id componen una vez.
 const inFlight = new Map<string, Promise<Buffer>>();
 
-export async function renderStrip(id: string, plan: Extract<Plan, { kind: 'row' | 'grid' }>): Promise<Buffer> {
-  const key = cacheKey(id, plan.kind);
+export async function renderStrip(
+  id: string,
+  plan: Extract<Plan, { kind: 'row' | 'grid' }>,
+  format: StripFormat,
+): Promise<Buffer> {
+  const key = cacheKey(id, plan.kind, format);
   const path = join(config.cacheDir, key);
 
-  const cached = await readCached(id, plan.kind);
+  const cached = await readCached(id, plan.kind, format);
   if (cached) return cached;
 
   const pending = inFlight.get(key);
   if (pending) return pending;
 
   const work = (async () => {
-    const buf = await compose(plan);
+    const buf = await compose(plan, format);
     // Escritura atómica: un rename evita servir un JPEG a medias si el proceso muere.
     const tmp = `${path}.${createHash('sha1').update(key).digest('hex').slice(0, 8)}.tmp`;
     await mkdir(config.cacheDir, { recursive: true });

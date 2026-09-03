@@ -14,14 +14,14 @@ const COLORS = [
 const solid = (w: number, h: number, i: number) =>
   sharp({ create: { width: w, height: h, channels: 3, background: COLORS[i]! } }).jpeg().toBuffer();
 
-/** Color del píxel (x,y) del JPEG resultante. */
-async function pixelAt(jpeg: Buffer, x: number, y: number) {
-  const { data, info } = await sharp(jpeg).raw().toBuffer({ resolveWithObject: true });
+/** Color y opacidad del píxel (x,y) de la imagen resultante. */
+async function pixelAt(img: Buffer, x: number, y: number) {
+  const { data, info } = await sharp(img).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const at = (y * info.width + x) * info.channels;
-  return { r: data[at]!, g: data[at + 1]!, b: data[at + 2]! };
+  return { r: data[at]!, g: data[at + 1]!, b: data[at + 2]!, a: data[at + 3]! };
 }
 
-// El JPEG es con pérdida: los colores planos se recuperan con margen de sobra.
+// La compresión es con pérdida: los colores planos se recuperan con margen de sobra.
 const near = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) => {
   expect(Math.abs(a.r - b.r)).toBeLessThan(16);
   expect(Math.abs(a.g - b.g)).toBeLessThan(16);
@@ -55,14 +55,41 @@ describe('composición de la fila', () => {
     }
   });
 
-  it('deja el color de fondo en la separación entre paneles', async () => {
+  it('deja el hueco entre paneles transparente, no pintado', async () => {
+    // Es lo que hace que la separación se vea del color del chat en vez de una
+    // franja negra en tema claro.
     const dims: [number, number][] = [[400, 1200], [400, 1200]];
     const plan = planLayout(statusWith(dims), 'row');
     if (plan.kind !== 'row') throw new Error('esperaba row');
 
-    const jpeg = await composePanels(plan, await Promise.all(dims.map(([w, h], i) => solid(w, h, i))));
+    const webp = await composePanels(plan, await Promise.all(dims.map(([w, h], i) => solid(w, h, i))));
     const gapX = plan.panels[0]!.width + 3; // centro del hueco de 6px
-    near(await pixelAt(jpeg, gapX, 600), { r: 0, g: 0, b: 0 });
+
+    expect((await pixelAt(webp, gapX, 600)).a).toBe(0);
+    // Y los paneles siguen siendo opacos.
+    expect((await pixelAt(webp, 200, 600)).a).toBe(255);
+  });
+
+  it('en JPEG el hueco se aplana a negro, porque no hay canal alfa', async () => {
+    const dims: [number, number][] = [[400, 1200], [400, 1200]];
+    const plan = planLayout(statusWith(dims), 'row');
+    if (plan.kind !== 'row') throw new Error('esperaba row');
+
+    const jpeg = await composePanels(plan, await Promise.all(dims.map(([w, h], i) => solid(w, h, i))), 'jpeg');
+    expect((await sharp(jpeg).metadata()).format).toBe('jpeg');
+    near(await pixelAt(jpeg, plan.panels[0]!.width + 3, 600), { r: 0, g: 0, b: 0 });
+  });
+
+  it('el WebP con alfa pesa menos que el JPEG equivalente', async () => {
+    const dims: [number, number][] = [[400, 1200], [400, 1200], [400, 1200]];
+    const plan = planLayout(statusWith(dims), 'row');
+    if (plan.kind !== 'row') throw new Error('esperaba row');
+    const buffers = await Promise.all(dims.map(([w, h], i) => solid(w, h, i)));
+
+    const webp = await composePanels(plan, buffers, 'webp');
+    const jpeg = await composePanels(plan, buffers, 'jpeg');
+    expect((await sharp(webp).metadata()).format).toBe('webp');
+    expect(webp.length).toBeLessThan(jpeg.length);
   });
 
   it('normaliza a una altura común cuando las fuentes difieren', async () => {
