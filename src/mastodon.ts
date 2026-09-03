@@ -17,6 +17,50 @@ import type { Plan } from './layout.js';
  * declaramos **un solo adjunto**, la tira ya cosida.
  */
 
+/*
+ * Discord exige que el id del status de Mastodon sea NUMÉRICO, así que los
+ * parámetros de composición no pueden viajar como query string: el enlace
+ * `activity+json` sólo transporta un id, y de ahí sale la llamada a
+ * /api/v1/statuses/:id. Si no se meten dentro del id, se pierden.
+ *
+ * (FxEmbed resuelve lo mismo con lo que llama «snowcode»: codifica un JSON
+ * entero a dos dígitos por carácter. Aquí basta algo mucho más simple, porque
+ * sólo hay dos parámetros que transportar.)
+ *
+ *   sin parámetros:   2095001889784164697
+ *   con parámetros:   9 1 016 2095001889784164697
+ *                     │ │ │   └ el id de siempre
+ *                     │ │ └ hueco en píxeles, a tres cifras
+ *                     │ └ layout: 1 fila, 2 cuadrícula
+ *                     └ marca de versión
+ */
+const MARCA = '9';
+
+export function encodeStatusId(id: string, kind?: 'row' | 'grid', gap?: number): string {
+  if (!kind || gap === undefined) return id;
+  return `${MARCA}${kind === 'row' ? '1' : '2'}${String(Math.min(999, gap)).padStart(3, '0')}${id}`;
+}
+
+export interface StatusIdDecodificado {
+  id: string;
+  kind?: 'row' | 'grid';
+  gap?: number;
+}
+
+export function decodeStatusId(token: string): StatusIdDecodificado | null {
+  if (!/^[0-9]{1,30}$/.test(token)) return null;
+  // Un id de X tiene 19 cifras y crecerá muy despacio; el codificado tiene 24.
+  // La marca de versión al principio evita confundirlos.
+  if (token.length > 20 && token[0] === MARCA) {
+    const kind = token[1] === '1' ? 'row' : token[1] === '2' ? 'grid' : undefined;
+    const gap = Number(token.slice(2, 5));
+    const id = token.slice(5);
+    if (kind && Number.isFinite(gap) && /^[0-9]{1,25}$/.test(id)) return { id, kind, gap };
+    return null;
+  }
+  return token.length <= 25 ? { id: token } : null;
+}
+
 interface Attachment {
   id: string;
   type: 'image';

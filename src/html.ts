@@ -3,6 +3,7 @@ import type { FxStatus } from './fx.js';
 import type { Plan } from './layout.js';
 import { EXT, STRIP_FORMAT } from './strip.js';
 import { hasBrandIcon } from './brand.js';
+import { encodeStatusId } from './mastodon.js';
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -91,9 +92,19 @@ ${body}
 `;
 }
 
-/** Ruta que Discord consulta para el documento estilo Mastodon. */
-export const activityUrl = (status: FxStatus, baseUrl: string) =>
-  `${baseUrl}/users/${status.author.screen_name}/statuses/${status.id}`;
+/**
+ * Ruta que Discord consulta para el documento estilo Mastodon.
+ *
+ * El layout y el hueco ya resueltos van codificados dentro del id, porque por
+ * este camino no hay query string que valga: ver `encodeStatusId`.
+ */
+export const activityUrl = (status: FxStatus, baseUrl: string, plan?: Plan) => {
+  const conParametros = plan && (plan.kind === 'row' || plan.kind === 'grid');
+  const token = conParametros
+    ? encodeStatusId(status.id, plan.kind, plan.gap)
+    : status.id;
+  return `${baseUrl}/users/${status.author.screen_name}/statuses/${token}`;
+};
 
 /**
  * @param forDiscord Discord entiende el documento Mastodon, que da avatar,
@@ -156,7 +167,7 @@ export function embedHtml(
       : '',
     `<link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembed)}" title="${escapeHtml(author)}">`,
     forDiscord
-      ? `<link rel="alternate" type="application/activity+json" href="${escapeHtml(activityUrl(status, baseUrl))}">`
+      ? `<link rel="alternate" type="application/activity+json" href="${escapeHtml(activityUrl(status, baseUrl, plan))}">`
       : '',
     `<meta http-equiv="refresh" content="0; url=${escapeHtml(original)}">`,
     `<link rel="canonical" href="${escapeHtml(original)}">`,

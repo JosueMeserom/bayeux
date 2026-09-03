@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
 import { authorLine, compact, embedHtml, errorHtml, oembedJson, statsLine } from '../src/html.js';
-import { mastodonStatus } from '../src/mastodon.js';
+import { decodeStatusId, encodeStatusId, mastodonStatus } from '../src/mastodon.js';
 import { defaultOpts, planLayout } from '../src/layout.js';
 import { composePanels } from '../src/strip.js';
 import { REAL, statusWith } from './fixtures.js';
@@ -218,6 +218,43 @@ describe('documento estilo Mastodon (el camino de Discord)', () => {
       url: string;
     }[];
     expect(media[0]!.url).toContain('pbs.twimg.com');
+  });
+});
+
+describe('los parámetros viajan dentro del id del status', () => {
+  // Discord construye la URL de /api/v1/statuses a partir del id y se deja por
+  // el camino cualquier query string. Si el layout y el hueco no van dentro del
+  // id, el embed sale siempre con los valores por defecto. Era exactamente el
+  // fallo: el HTML hacía caso a ?layout=grid y nadie lo leía.
+  const status = statusWith(REAL.makokoto);
+
+  it('ida y vuelta con parámetros', () => {
+    const t = encodeStatusId('2095001889784164697', 'grid', 24);
+    expect(t).toBe('920242095001889784164697');
+    expect(decodeStatusId(t)).toEqual({ id: '2095001889784164697', kind: 'grid', gap: 24 });
+  });
+
+  it('el hueco a cero no se confunde con «sin hueco declarado»', () => {
+    expect(decodeStatusId(encodeStatusId('2095001889784164697', 'row', 0))).toEqual({
+      id: '2095001889784164697',
+      kind: 'row',
+      gap: 0,
+    });
+  });
+
+  it('un id pelado se sigue entendiendo, para los embeds ya cacheados', () => {
+    expect(decodeStatusId('2095001889784164697')).toEqual({ id: '2095001889784164697' });
+  });
+
+  it('rechaza lo que no es un id', () => {
+    expect(decodeStatusId('hola')).toBeNull();
+    expect(decodeStatusId('')).toBeNull();
+    expect(decodeStatusId('1'.repeat(40))).toBeNull();
+  });
+
+  it('el enlace del HTML lleva el token, no el id pelado', () => {
+    const html = embedHtml(status, planLayout(status, 'grid'), BASE, true);
+    expect(html).toContain('/users/autor/statuses/92016');
   });
 });
 

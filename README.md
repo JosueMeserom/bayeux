@@ -86,6 +86,23 @@ La diferencia con otros servicios está en el campo `media_attachments` de ese d
 
 Al resto de clientes (Telegram, WhatsApp) se les sigue sirviendo OpenGraph normal.
 
+⚠️ **Nota**: por este camino **no hay query string que valga**. Discord toma el id del
+enlace y construye él mismo la URL de `/api/v1/statuses/:id`, así que cualquier `?layout=`
+o `?gap=` se pierde por el camino. Por eso el layout y el hueco ya resueltos viajan
+**codificados dentro del id**, que Discord exige que sea numérico:
+
+```
+sin parámetros:   2095001889784164697
+con parámetros:   9 1 016 2095001889784164697
+                  │ │ │   └ el id de siempre
+                  │ │ └ hueco en píxeles, a tres cifras
+                  │ └ layout: 1 fila, 2 cuadrícula
+                  └ marca de versión
+```
+
+Un id pelado se sigue entendiendo, para no romper los embeds que Discord ya tenga
+cacheados.
+
 ---
 
 ## 📏 Cuánta separación dejar
@@ -158,6 +175,7 @@ cosa, `?gap=N` lo fuerza.
 | `GET /:handle/status/:id/*` | Igual, tragándose sufijos tipo `/photo/1` |
 | `GET /strip/:id.webp` | La imagen cosida. Acepta `?layout=`. También responde a `.jpg` |
 | `GET /api/v1/statuses/:id` | El documento estilo Mastodon que consulta Discord |
+| `GET /users/:handle/statuses/:id` | Sólo existe para que el enlace anterior no sea un 404 |
 | `GET /oembed?id=` | Respuesta oEmbed |
 | `GET /icon.png` | El logo, si hay uno configurado |
 | `GET /health` | Comprobación de vida, sin dependencias externas |

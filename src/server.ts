@@ -6,7 +6,7 @@ import { config } from './config.js';
 import { brandIconPath, hasBrandIcon } from './brand.js';
 import { FxError, fetchStatus, photosOf } from './fx.js';
 import { embedHtml, errorHtml, imageUrl, landingHtml, oembedJson } from './html.js';
-import { mastodonStatus } from './mastodon.js';
+import { decodeStatusId, mastodonStatus } from './mastodon.js';
 import { baseUrlFor, hostLayout, isCrawler } from './http.js';
 import {
   defaultOpts,
@@ -124,14 +124,19 @@ export async function build() {
    * Declaramos un solo adjunto, la tira, para que no la despiece en cuadrícula.
    */
   app.get<{ Params: { id: string } }>('/api/v1/statuses/:id', async (req, reply) => {
-    const { id } = req.params;
-    if (!STATUS_ID.test(id)) return reply.code(404).send({ error: 'id inválido' });
+    // El id puede traer dentro el layout y el hueco ya resueltos: es la única
+    // forma de que lleguen hasta aquí, porque Discord construye esta URL a
+    // partir del id y se deja por el camino cualquier query string.
+    const token = decodeStatusId(req.params.id);
+    if (!token) return reply.code(404).send({ error: 'id inválido' });
 
-    const status = await fetchStatus(id).catch(() => null);
+    const status = await fetchStatus(token.id).catch(() => null);
     if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
     const base = baseUrlFor(req.headers, req.protocol);
-    const plan = planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
+    const plan = token.kind
+      ? planLayout(status, token.kind, { ...resolveOpts(req.query), gap: token.gap! })
+      : planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
     return reply
       .type('application/json; charset=utf-8')
       .header('cache-control', 'public, max-age=300')
@@ -143,11 +148,12 @@ export async function build() {
   app.get<{ Params: { handle: string; id: string } }>(
     '/users/:handle/statuses/:id',
     async (req, reply) => {
-      const { handle, id } = req.params;
-      if (!HANDLE.test(handle) || !STATUS_ID.test(id)) {
+      const { handle } = req.params;
+      const token = decodeStatusId(req.params.id);
+      if (!HANDLE.test(handle) || !token) {
         return reply.code(404).send({ error: 'enlace no reconocido' });
       }
-      return reply.redirect(xUrl(handle, id), 302);
+      return reply.redirect(xUrl(handle, token.id), 302);
     },
   );
 
