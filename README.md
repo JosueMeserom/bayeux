@@ -123,7 +123,7 @@ cosa, `?gap=N` lo fuerza.
 | `GET /oembed?id=` | Respuesta oEmbed |
 | `GET /icon.png` | El logo, si hay uno configurado |
 | `GET /health` | Comprobación de vida, sin dependencias externas |
-| `GET /` | Landing breve |
+| `GET /` | Landing breve (ver abajo si prefieres servirla con el proxy) |
 
 ---
 
@@ -196,6 +196,29 @@ bayeux.example.net, tirax.example.net, panox.example.net {
 	reverse_proxy 127.0.0.1:3000
 }
 ```
+
+### Portada estática
+
+En `landing/` hay una portada de una sola página, sin dependencias ni compilación,
+que se puede servir directamente desde el proxy en vez de por el proceso. Trae un
+conversor de enlaces y una comparativa generada **por el propio servicio**, así que
+las imágenes salen de `/strip/` y hay que dejar esa ruta apuntando al backend:
+
+```caddyfile
+bayeux.example.net, tirax.example.net {
+	handle / {
+		root * /ruta/a/bayeux/landing
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+```
+
+⚠️ **Nota**: tienen que ser bloques `handle`, no un `reverse_proxy` suelto. Con
+`handle /` solo se captura la raíz exacta, y todo lo demás (`/strip/`, `/icon.png`,
+`/api/v1/statuses/`) sigue llegando al proceso, que es justo lo que hace falta.
 
 ⚠️ **Nota**: si tu Caddy corre **dentro de un contenedor**, `127.0.0.1` es el propio contenedor y no llegará a nada. En ese caso apunta a la puerta de enlace del puente Docker (`172.17.0.1`), pon ahí también el `HOST` de Bayeux, y usa esa red en `TRUST_PROXY`.
 

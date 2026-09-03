@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayeux</title>
+<meta name="description" content="Embeds de X/Twitter que cosen las imágenes de un post en una sola tira horizontal, para que los dibujos partidos se lean como una pieza continua.">
+<meta name="theme-color" content="#0c0e14">
+<link rel="icon" type="image/png" href="/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bayeux">
+<meta property="og:description" content="Embeds de X/Twitter que cosen las imágenes en una sola tira horizontal.">
+<meta property="og:image" content="/icon.png">
+<style>
+  /* ---- Paleta, sacada de los tres paneles del logo ---------------------- */
+  :root {
+    --rosa: #eb459e;
+    --azul: #2b92f0;
+    --verde: #00c2a8;
+
+    --fondo: #0c0e14;
+    --fondo2: #12151d;
+    --panel: #161a24;
+    --linea: #232936;
+    --texto: #eef1f7;
+    --suave: #99a3b8;
+    --tenue: #667089;
+    --sombra: 0 1px 2px rgba(0,0,0,.4), 0 12px 40px -12px rgba(0,0,0,.7);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --fondo: #fbfbfd;
+      --fondo2: #f3f4f8;
+      --panel: #ffffff;
+      --linea: #e3e6ee;
+      --texto: #10131a;
+      --suave: #4d5568;
+      --tenue: #7b8399;
+      --sombra: 0 1px 2px rgba(16,19,26,.06), 0 12px 32px -14px rgba(16,19,26,.22);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font: 400 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .envoltorio { width: min(100% - 2.5rem, 62rem); margin-inline: auto; }
+  h1, h2, h3 { line-height: 1.15; letter-spacing: -0.025em; margin: 0; font-weight: 700; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--azul); text-decoration-color: color-mix(in srgb, var(--azul) 35%, transparent); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .9em; }
+
+  /* ---- Cabecera --------------------------------------------------------- */
+  header { position: relative; padding: clamp(3.5rem, 11vw, 7rem) 0 clamp(2.5rem, 7vw, 4.5rem); overflow: hidden; }
+  /* Franjas verticales de fondo: el mismo motivo de la tira. */
+  .franjas { position: absolute; inset: 0; z-index: 0; display: flex; gap: 10px; opacity: .05; pointer-events: none; }
+  .franjas span { flex: 1; background: linear-gradient(180deg, var(--texto), transparent 70%); }
+  header > .envoltorio { position: relative; z-index: 1; }
+
+  .marca { display: flex; align-items: center; gap: .85rem; margin-bottom: 2rem; }
+  .marca img { width: 44px; height: 44px; display: block; }
+  .marca b { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.03em; }
+
+  h1 { font-size: clamp(2.4rem, 7vw, 4.1rem); max-width: 17ch; }
+  h1 em { font-style: normal; background: linear-gradient(100deg, var(--rosa), var(--azul) 55%, var(--verde)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .entradilla { font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--suave); max-width: 56ch; margin: 1.4rem 0 0; }
+
+  /* ---- Conversor -------------------------------------------------------- */
+  .conversor { margin-top: 2.75rem; max-width: 46rem; }
+  .campo { position: relative; }
+  .campo input {
+    width: 100%; padding: 1.05rem 1.2rem; border-radius: 14px;
+    border: 1px solid var(--linea); background: var(--panel); color: var(--texto);
+    font: inherit; font-size: 1rem; box-shadow: var(--sombra); transition: border-color .15s, box-shadow .15s;
+  }
+  .campo input::placeholder { color: var(--tenue); }
+  .campo input:focus { outline: none; border-color: var(--azul); box-shadow: var(--sombra), 0 0 0 4px color-mix(in srgb, var(--azul) 18%, transparent); }
+
+  .salida { margin-top: .85rem; display: none; gap: .6rem; align-items: stretch; }
+  .salida.visible { display: flex; }
+  .salida output {
+    flex: 1; min-width: 0; padding: .95rem 1.1rem; border-radius: 12px;
+    background: var(--fondo2); border: 1px solid var(--linea);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92rem;
+    overflow-x: auto; white-space: nowrap; display: block;
+  }
+  button.copiar {
+    flex: 0 0 auto; padding: .95rem 1.3rem; border-radius: 12px; border: 0; cursor: pointer;
+    background: var(--azul); color: #fff; font: inherit; font-size: .95rem; font-weight: 600;
+    transition: filter .15s, transform .08s;
+  }
+  button.copiar:hover { filter: brightness(1.1); }
+  button.copiar:active { transform: translateY(1px); }
+  button.copiar.hecho { background: var(--verde); }
+  .aviso { margin-top: .7rem; font-size: .92rem; color: var(--tenue); min-height: 1.4em; }
+  .aviso.error { color: var(--rosa); }
+
+  .espejos { margin-top: 1.5rem; display: none; flex-wrap: wrap; gap: .45rem; align-items: center; }
+  .espejos.visible { display: flex; }
+  .espejos > span { font-size: .88rem; color: var(--tenue); margin-right: .35rem; }
+  .espejos button {
+    border: 1px solid var(--linea); background: var(--panel); color: var(--suave);
+    padding: .35rem .7rem; border-radius: 999px; cursor: pointer;
+    font: inherit; font-size: .84rem; transition: color .15s, border-color .15s;
+  }
+  .espejos button:hover { color: var(--texto); border-color: var(--tenue); }
+  .espejos button[aria-pressed="true"] { color: #fff; background: var(--azul); border-color: var(--azul); }
+
+  /* ---- Secciones -------------------------------------------------------- */
+  section { padding: clamp(3rem, 8vw, 5.5rem) 0; border-top: 1px solid var(--linea); }
+  section > .envoltorio > h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); }
+  .subtitulo { color: var(--suave); max-width: 62ch; margin-top: .9rem; }
+
+  /* ---- Demostración ----------------------------------------------------- */
+  .demo { margin-top: 2.5rem; display: grid; gap: 1.5rem; }
+  @media (min-width: 60rem) { .demo { grid-template-columns: 1fr 1fr; align-items: start; } }
+  figure { margin: 0; }
+  figcaption { display: flex; align-items: baseline; gap: .6rem; margin-bottom: .8rem; }
+  .etiqueta { font-size: .74rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; padding: .22rem .6rem; border-radius: 6px; }
+  .etiqueta.mal { color: var(--rosa); background: color-mix(in srgb, var(--rosa) 14%, transparent); }
+  .etiqueta.bien { color: var(--verde); background: color-mix(in srgb, var(--verde) 15%, transparent); }
+  figcaption span:last-child { color: var(--tenue); font-size: .92rem; }
+  .lienzo { border: 1px solid var(--linea); border-radius: 14px; padding: .75rem; background: var(--fondo2); box-shadow: var(--sombra); }
+  .lienzo img { width: 100%; height: auto; display: block; border-radius: 6px; }
+
+  /* ---- Pasos ------------------------------------------------------------ */
+  .pasos { margin-top: 2.5rem; display: grid; gap: 1.1rem; counter-reset: paso; }
+  @media (min-width: 48rem) { .pasos { grid-template-columns: repeat(3, 1fr); } }
+  .paso { position: relative; padding: 1.5rem 1.4rem 1.4rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--linea); overflow: hidden; }
+  .paso::before {
+    counter-increment: paso; content: counter(paso);
+    position: absolute; top: 1.1rem; right: 1.2rem;
+    font-size: 2.6rem; font-weight: 800; line-height: 1; color: var(--linea);
+  }
+  /* Una franja de color por paso, siguiendo los tres paneles del logo. */
+  .paso::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; }
+  .paso:nth-child(1)::after { background: var(--rosa); }
+  .paso:nth-child(2)::after { background: var(--azul); }
+  .paso:nth-child(3)::after { background: var(--verde); }
+  .paso h3 { font-size: 1.06rem; margin-bottom: .5rem; }
+  .paso p { color: var(--suave); font-size: .96rem; margin: 0; }
+  .paso code { color: var(--texto); background: var(--fondo2); padding: .12em .4em; border-radius: 5px; }
+
+  /* ---- Tabla de ajustes ------------------------------------------------- */
+  .tabla { margin-top: 2rem; border: 1px solid var(--linea); border-radius: 14px; overflow: hidden; }
+  .fila { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: 1rem; padding: 1rem 1.25rem; border-top: 1px solid var(--linea); align-items: baseline; }
+  .fila:first-child { border-top: 0; }
+  .fila code { color: var(--verde); font-weight: 500; }
+  .fila span { color: var(--suave); font-size: .96rem; }
+  @media (max-width: 34rem) { .fila { grid-template-columns: 1fr; gap: .25rem; } }
+
+  /* ---- Nota honesta ----------------------------------------------------- */
+  .nota { margin-top: 2rem; padding: 1.4rem 1.5rem; border-radius: 14px; background: var(--fondo2); border: 1px solid var(--linea); border-left: 3px solid var(--azul); }
+  .nota p { color: var(--suave); font-size: .97rem; }
+  .nota p:last-child { margin-bottom: 0; }
+  .nota strong { color: var(--texto); }
+
+  /* ---- Pie -------------------------------------------------------------- */
+  footer { border-top: 1px solid var(--linea); padding: 3rem 0 4rem; color: var(--tenue); font-size: .92rem; }
+  footer .envoltorio { display: flex; flex-wrap: wrap; gap: 1rem 2rem; align-items: center; justify-content: space-between; }
+  footer p { margin: 0; max-width: 46ch; }
+  .enlaces { display: flex; gap: 1.4rem; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="franjas" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <div class="envoltorio">
+    <div class="marca">
+      <img src="/icon.png" alt="" width="44" height="44">
+      <b>Bayeux</b>
+    </div>
+
+    <h1>Los dibujos partidos se leen <em>de una pieza</em></h1>
+    <p class="entradilla">
+      Cuando pegas un post de X con varias imágenes, el embed las apila en cuadrícula y
+      parte por la mitad las ilustraciones que alguien dibujó para leerse seguidas.
+      Bayeux las cose en una sola tira horizontal, en orden.
+    </p>
+
+    <div class="conversor">
+      <div class="campo">
+        <input id="entrada" type="url" spellcheck="false" autocomplete="off"
+               placeholder="Pega aquí un enlace de x.com..."
+               aria-label="Enlace de X para convertir">
+      </div>
+      <div class="salida" id="salida">
+        <output id="resultado" for="entrada"></output>
+        <button class="copiar" id="copiar" type="button">Copiar</button>
+      </div>
+      <p class="aviso" id="aviso" role="status"></p>
+      <div class="espejos" id="espejos">
+        <span>o usa otro nombre:</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="diferencia">
+  <div class="envoltorio">
+    <h2>La diferencia</h2>
+    <p class="subtitulo">
+      El mismo post, servido por este mismo servicio. Las dos imágenes están generadas
+      en vivo: son las que recibiría Discord en cada caso.
+    </p>
+
+    <div class="demo">
+      <figure>
+        <figcaption>
+          <span class="etiqueta mal">Cuadrícula</span>
+          <span>El dibujo se rompe y se recorta</span>
+        </figcaption>
+        <div class="lienzo">
+          <img src="/strip/2095001889784164697.webp?layout=grid&amp;gap=9" loading="lazy"
+               width="2133" height="1200"
+               alt="Las cuatro imágenes del post montadas en cuadrícula, con el dibujo partido y recortado.">
+        </div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <span class="etiqueta bien">Tira</span>
+          <span>El dibujo continúa a través de los cortes</span>
+        </figcaption>
+        <div class="lienzo">
+          <img src="/strip/2095001889784164697.webp?layout=row&amp;gap=9" loading="lazy"
+               width="1651" height="1200"
+               alt="Las mismas cuatro imágenes cosidas en una fila horizontal, formando una ilustración continua.">
+        </div>
+      </figure>
+    </div>
+
+    <div class="nota">
+      <p>
+        <strong>La separación no es un número al azar.</strong> Es la misma proporción que
+        usa X al mostrar el post: escala la fila a una altura fija y deja cinco píxeles entre
+        trozos. Como es una fracción de la altura y no una medida absoluta, sale igual en
+        cualquier post sin necesidad de descargar las imágenes para calcularla.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="uso">
+  <div class="envoltorio">
+    <h2>Cómo se usa</h2>
+    <p class="subtitulo">No hay que instalar nada ni registrarse en ningún sitio.</p>
+
+    <div class="pasos">
+      <div class="paso">
+        <h3>Copia el enlace</h3>
+        <p>Cualquier post de X con dos o más imágenes. Los sufijos tipo <code>/photo/1</code> dan igual.</p>
+      </div>
+      <div class="paso">
+        <h3>Cambia el dominio</h3>
+        <p>Sustituye <code>x.com</code> por el nombre de arriba. El resto de la dirección se queda igual.</p>
+      </div>
+      <div class="paso">
+        <h3>Pégalo en el chat</h3>
+        <p>El embed sale con la tira cosida, y al pinchar te lleva al post original de siempre.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ajustes">
+  <div class="envoltorio">
+    <h2>Si la detección se equivoca</h2>
+    <p class="subtitulo">
+      Bayeux cose en fila cuando el post tiene entre dos y cuatro fotos de la misma altura y
+      no hay vídeo mezclado. Es una buena señal, pero solo mira las dimensiones, así que a
+      veces acierta de más. Estos parámetros se añaden al final del enlace.
+    </p>
+
+    <div class="tabla">
+      <div class="fila"><code>?layout=row</code><span>Fuerza la tira aunque la detección diga que no</span></div>
+      <div class="fila"><code>?layout=grid</code><span>Fuerza la cuadrícula, para cuando son fotos sin relación</span></div>
+      <div class="fila"><code>?gap=N</code><span>Cambia la separación entre paneles, en píxeles. <code>?gap=0</code> los pega del todo</span></div>
+    </div>
+
+    <div class="nota">
+      <p>
+        <strong>Una cosa honesta sobre Discord.</strong> El embed escala la imagen a una caja de
+        unos 400 por 300 píxeles. Como la tira es ancha, agota el ancho antes que el alto y se
+        ve como una franja fina: se aprecia la continuidad, pero el detalle real aparece al
+        hacer clic y abrirla. Eso no depende del servicio, es cómo pinta Discord.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="envoltorio">
+    <p>
+      Bayeux no está afiliado ni respaldado por X Corp.
+      Consume la API pública de FxEmbed y la idea del cosido viene de su componente <em>mosaic</em>.
+    </p>
+    <div class="enlaces">
+      <a href="https://github.com/JosueMeserom/bayeux">Código</a>
+      <a href="https://github.com/JosueMeserom/bayeux/blob/main/LICENSE">MIT</a>
+      <a href="https://github.com/FxEmbed/FxEmbed">FxEmbed</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* Otros nombres que sirven este mismo servicio. Deja la lista vacía para
+     ocultar los botones. Se muestran todos menos el que ya estás visitando. */
+  var ESPEJOS = [
+    'bayeux.ultrak.dynu.net', 'tirax.ultrak.dynu.net', 'frisox.ultrak.dynu.net',
+    'panox.ultrak.dynu.net', 'emakix.ultrak.dynu.net', 'rowx.ultrak.dynu.net',
+    'stitchx.ultrak.dynu.net', 'cintax.ultrak.dynu.net', 'bandax.ultrak.dynu.net'
+  ];
+
+  var entrada = document.getElementById('entrada');
+  var salida = document.getElementById('salida');
+  var resultado = document.getElementById('resultado');
+  var copiar = document.getElementById('copiar');
+  var aviso = document.getElementById('aviso');
+  var espejos = document.getElementById('espejos');
+
+  var host = location.host;
+  var ultimo = null;
+
+  /* Acepta x.com, twitter.com y los proxys habituales, con o sin esquema. */
+  var PATRON = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)*(?:x|twitter|vxtwitter|fxtwitter|fixupx|nitter)\.[a-z.]+\/([A-Za-z0-9_]{1,15})\/status(?:es)?\/([0-9]{1,25})(\/[^\s?#]*)?/i;
+
+  function convertir() {
+    var texto = entrada.value.trim();
+    if (!texto) {
+      salida.className = 'salida';
+      aviso.className = 'aviso';
+      aviso.textContent = '';
+      ultimo = null;
+      return;
+    }
+
+    var m = PATRON.exec(texto);
+    if (!m) {
+      salida.className = 'salida';
+      aviso.className = 'aviso error';
+      aviso.textContent = 'Eso no parece un enlace a un post de X.';
+      ultimo = null;
+      return;
+    }
+
+    ultimo = 'https://' + host + '/' + m[1] + '/status/' + m[2] + (m[3] || '');
+    resultado.textContent = ultimo;
+    salida.className = 'salida visible';
+    aviso.className = 'aviso';
+    aviso.textContent = 'Listo. Pega esto en el chat.';
+    copiar.textContent = 'Copiar';
+    copiar.className = 'copiar';
+  }
+
+  entrada.addEventListener('input', convertir);
+
+  copiar.addEventListener('click', function () {
+    if (!ultimo) return;
+    var hecho = function () {
+      copiar.textContent = 'Copiado';
+      copiar.className = 'copiar hecho';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ultimo).then(hecho, seleccionar);
+    } else {
+      seleccionar();
+    }
+  });
+
+  /* Sin portapapeles (http, permisos denegados) al menos se deja seleccionado. */
+  function seleccionar() {
+    var r = document.createRange();
+    r.selectNodeContents(resultado);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    aviso.textContent = 'Copia el texto seleccionado con Ctrl+C.';
+  }
+
+  /* Botones para cambiar de nombre de dominio sin perder lo ya escrito. */
+  var otros = ESPEJOS.filter(function (h) { return h !== host; });
+  if (otros.length) {
+    ESPEJOS.forEach(function (h) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = h.split('.')[0];
+      b.setAttribute('aria-pressed', String(h === host));
+      b.addEventListener('click', function () {
+        host = h;
+        Array.prototype.forEach.call(espejos.querySelectorAll('button'), function (o) {
+          o.setAttribute('aria-pressed', String(o === b));
+        });
+        convertir();
+      });
+      espejos.appendChild(b);
+    });
+    espejos.className = 'espejos visible';
+  }
+})();
+</script>
+
+</body>
+</html>
