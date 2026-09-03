@@ -24,7 +24,7 @@ Cuando pegas un enlace de X en Discord, el embed solo enseña la primera imagen.
            el dibujo se rompe      se lee entero
 ```
 
-Mucha gente que dibuja parte una ilustración alta en varias imágenes, porque X limita el tamaño. La cuadrícula destroza esa lectura. Bayeux detecta ese caso concreto y las cose en fila.
+Mucha gente que dibuja parte una ilustración alta en varias imágenes, ya sea por estilo o porque X limita el tamaño. La cuadrícula destroza esa lectura. Bayeux detecta ese caso concreto y las cose en fila.
 
 ---
 

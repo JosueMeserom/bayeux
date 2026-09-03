@@ -65,13 +65,15 @@ const meta = (pairs: [string, string | number | undefined][]) =>
     .join('\n');
 
 /** URL absoluta de la imagen del embed, o undefined si el post no tiene fotos. */
-export function imageUrl(id: string, plan: Plan, baseUrl: string): string | undefined {
+export function imageUrl(id: string, plan: Plan, baseUrl: string, gap = config.gap): string | undefined {
   if (plan.kind === 'none') return undefined;
   // Con una sola foto no se compone nada: se enlaza pbs.twimg.com tal cual.
   if (plan.kind === 'passthrough') return plan.url;
   // El layout ya resuelto va fijado en la URL, para que la imagen servida sea
   // exactamente la que declaran og:image:width/height aunque cambie la heurística.
-  return `${baseUrl}/strip/${id}.${EXT[STRIP_FORMAT]}?layout=${plan.kind}`;
+  // Layout y hueco van fijados en la URL: así la imagen servida es exactamente
+  // la que declaran og:image:width/height, y la clave de caché sale de la URL.
+  return `${baseUrl}/strip/${id}.${EXT[STRIP_FORMAT]}?layout=${plan.kind}&gap=${gap}`;
 }
 
 function page(head: string, body: string): string {
@@ -98,8 +100,14 @@ export const activityUrl = (status: FxStatus, baseUrl: string) =>
  *   texto en grande y pie con fecha. Cuando se le ofrece ese camino se le
  *   retira el og:image para que no monte además el embed plano de OpenGraph.
  */
-export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string, forDiscord = false): string {
-  const image = imageUrl(status.id, plan, baseUrl);
+export function embedHtml(
+  status: FxStatus,
+  plan: Plan,
+  baseUrl: string,
+  forDiscord = false,
+  gap = config.gap,
+): string {
+  const image = imageUrl(status.id, plan, baseUrl, gap);
   const author = authorLine(status);
   const original = status.url;
 
@@ -142,7 +150,11 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string, forDisc
       ? `<link rel="apple-touch-icon" href="${escapeHtml(status.author.avatar_url)}">`
       : '',
     // Y el favicon como icono del pie.
-    hasBrandIcon() ? `<link rel="icon" type="image/png" href="${baseUrl}/icon.png">` : '',
+    hasBrandIcon()
+      ? `<link rel="icon" type="image/png" sizes="256x256" href="${baseUrl}/icon.png">
+<link rel="icon" type="image/png" sizes="64x64" href="${baseUrl}/icon.png">
+<link rel="shortcut icon" href="${baseUrl}/favicon.ico">`
+      : '',
     `<link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembed)}" title="${escapeHtml(author)}">`,
     forDiscord
       ? `<link rel="alternate" type="application/activity+json" href="${escapeHtml(activityUrl(status, baseUrl))}">`

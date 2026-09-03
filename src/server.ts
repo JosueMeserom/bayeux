@@ -8,7 +8,7 @@ import { FxError, fetchStatus, photosOf } from './fx.js';
 import { embedHtml, errorHtml, imageUrl, landingHtml, oembedJson } from './html.js';
 import { mastodonStatus } from './mastodon.js';
 import { baseUrlFor, hostLayout, isCrawler } from './http.js';
-import { isLayoutMode, planLayout, type LayoutMode } from './layout.js';
+import { defaultOpts, isLayoutMode, planLayout, type LayoutMode } from './layout.js';
 import { formatFromExt, pruneCache, readCached, renderStrip, type StripFormat } from './strip.js';
 
 const HANDLE = /^[A-Za-z0-9_]{1,15}$/;
@@ -16,6 +16,20 @@ const STATUS_ID = /^[0-9]{1,25}$/;
 
 const xUrl = (handle: string, id: string, rest?: string) =>
   `https://x.com/${handle}/status/${id}${rest ? `/${rest}` : ''}`;
+
+/**
+ * Hueco entre paneles, en píxeles.
+ *
+ * No hay un valor universal: cuánto contenido falta entre dos trozos depende
+ * de cómo cortase la imagen quien la subió. Medido en posts reales va desde
+ * 1px hasta 19px sobre paneles de tamaño parecido. Por eso el valor de
+ * `GAP` es solo un defecto razonable y esto permite afinarlo por post.
+ */
+function resolveGap(query: unknown): number {
+  const raw = Number((query as { gap?: unknown })?.gap);
+  if (!Number.isFinite(raw)) return config.gap;
+  return Math.min(200, Math.max(0, Math.round(raw)));
+}
 
 /** Prioridad: query param > layout por defecto del host > auto. */
 function resolveMode(query: unknown, headers: Record<string, unknown>): LayoutMode {
@@ -48,13 +62,17 @@ export async function build() {
   app.get('/health', async () => ({ status: 'ok', uptime: Math.round(process.uptime()) }));
 
   // El logo, para el icono del pie del embed y la pestaña del navegador.
-  app.get('/icon.png', async (_req, reply) => {
+  // También en /favicon.ico, que es lo que piden los clientes que no leen
+  // los <link rel="icon"> del HTML.
+  const serveIcon = async (_req: FastifyRequest, reply: FastifyReply) => {
     if (!hasBrandIcon()) return reply.code(404).send({ error: 'sin logo configurado' });
     return reply
       .type('image/png')
       .header('cache-control', 'public, max-age=86400')
       .send(await readFile(brandIconPath));
-  });
+  };
+  app.get('/icon.png', serveIcon);
+  app.get('/favicon.ico', serveIcon);
 
   app.get('/', async (req, reply) => {
     reply.type('text/html; charset=utf-8').header('cache-control', 'public, max-age=3600');
@@ -90,11 +108,12 @@ export async function build() {
     if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
     const base = baseUrlFor(req.headers, req.protocol);
-    const plan = planLayout(status, resolveMode(req.query, req.headers));
+    const gap = resolveGap(req.query);
+    const plan = planLayout(status, resolveMode(req.query, req.headers), { ...defaultOpts(), gap });
     return reply
       .type('application/json; charset=utf-8')
       .header('cache-control', 'public, max-age=300')
-      .send(mastodonStatus(status, plan, base, imageUrl(status.id, plan, base)));
+      .send(mastodonStatus(status, plan, base, imageUrl(status.id, plan, base, gap)));
   });
 
   // Sólo existe para que el enlace del <link rel="alternate"> no sea un 404:
@@ -128,22 +147,26 @@ export async function build() {
 
       // Con el layout fijado en la URL la clave de caché es conocida: un acierto
       // se sirve sin llamar a la API upstream.
+      const gap = resolveGap(req.query);
       const pinned = req.query.layout;
       if (pinned === 'row' || pinned === 'grid') {
-        const hit = await readCached(id, pinned, format);
+        const hit = await readCached(id, pinned, format, gap);
         if (hit) return send(pinned, hit);
       }
 
       const status = await fetchStatus(id).catch(() => null);
       if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
-      const plan = planLayout(status, resolveMode(req.query, req.headers));
+      const plan = planLayout(status, resolveMode(req.query, req.headers), {
+        ...defaultOpts(),
+        gap,
+      });
       if (plan.kind === 'none') return reply.code(404).send({ error: 'el post no tiene fotos' });
       // Una sola foto: no hay nada que componer, se manda al original de pbs.twimg.com.
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
 
       try {
-        return send(plan.kind, await renderStrip(id, plan, format));
+        return send(plan.kind, await renderStrip(id, plan, format, gap));
       } catch (err) {
         // Degradar antes que reventar: la primera foto sola sigue siendo un embed útil.
         req.log.warn({ id, err: (err as Error).message }, 'composición fallida');
@@ -174,9 +197,10 @@ export async function build() {
     reply.type('text/html; charset=utf-8');
     try {
       const status = await fetchStatus(id);
-      const plan = planLayout(status, resolveMode(req.query, req.headers));
+      const gap = resolveGap(req.query);
+      const plan = planLayout(status, resolveMode(req.query, req.headers), { ...defaultOpts(), gap });
       const isDiscord = (req.headers['user-agent'] ?? '').includes('Discordbot');
-      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord);
+      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord, gap);
     } catch (err) {
       const reason =
         err instanceof FxError && err.code === 404

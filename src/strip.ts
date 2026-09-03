@@ -25,8 +25,8 @@ export function formatFromExt(ext: string): StripFormat | undefined {
 }
 
 /** Clave de caché: id + layout + formato + versión del algoritmo. */
-export function cacheKey(id: string, kind: 'row' | 'grid', format: StripFormat): string {
-  return `${id}-${kind}-${ALGO_VERSION}.${EXT[format]}`;
+export function cacheKey(id: string, kind: 'row' | 'grid', format: StripFormat, gap: number): string {
+  return `${id}-${kind}-g${gap}-${ALGO_VERSION}.${EXT[format]}`;
 }
 
 /** Lienzo transparente si BG_COLOR es `transparent`; si no, el color pedido. */
@@ -44,8 +44,13 @@ function canvasBackground() {
  * El og:image siempre lleva el layout fijado, así que con la URL basta para
  * conocer la clave: un acierto de caché no necesita preguntarle nada a la API.
  */
-export function readCached(id: string, kind: 'row' | 'grid', format: StripFormat): Promise<Buffer | null> {
-  return readFile(join(config.cacheDir, cacheKey(id, kind, format))).catch(() => null);
+export function readCached(
+  id: string,
+  kind: 'row' | 'grid',
+  format: StripFormat,
+  gap: number,
+): Promise<Buffer | null> {
+  return readFile(join(config.cacheDir, cacheKey(id, kind, format, gap))).catch(() => null);
 }
 
 /** Composición pura: mismos buffers dentro, mismo JPEG fuera. Sin red, testeable. */
@@ -89,11 +94,12 @@ export async function renderStrip(
   id: string,
   plan: Extract<Plan, { kind: 'row' | 'grid' }>,
   format: StripFormat,
+  gap: number,
 ): Promise<Buffer> {
-  const key = cacheKey(id, plan.kind, format);
+  const key = cacheKey(id, plan.kind, format, gap);
   const path = join(config.cacheDir, key);
 
-  const cached = await readCached(id, plan.kind, format);
+  const cached = await readCached(id, plan.kind, format, gap);
   if (cached) return cached;
 
   const pending = inFlight.get(key);
