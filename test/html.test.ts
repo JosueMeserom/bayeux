@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
 import { authorLine, compact, embedHtml, errorHtml, oembedJson, statsLine } from '../src/html.js';
+import { mastodonStatus } from '../src/mastodon.js';
 import { planLayout } from '../src/layout.js';
 import { composePanels } from '../src/strip.js';
 import { REAL, statusWith } from './fixtures.js';
@@ -161,5 +162,63 @@ describe('embed de error', () => {
   });
   it('explica el motivo en la descripción', () => {
     expect(metaOf(html, 'og:description')).toBe('El post no existe.');
+  });
+});
+
+describe('documento estilo Mastodon (el camino de Discord)', () => {
+  const status = statusWith(REAL.makokoto);
+  const plan = planLayout(status, 'auto');
+  const doc = mastodonStatus(status, plan, BASE, `${BASE}/strip/x.webp`);
+
+  it('declara UN solo adjunto: la tira ya cosida, no las fotos sueltas', () => {
+    // Es toda la diferencia con FxEmbed: con las fotos sueltas, Discord monta
+    // su cuadrícula y se pierde el dibujo continuo.
+    const media = doc.media_attachments as { url: string; meta: { original: { width: number } } }[];
+    expect(media).toHaveLength(1);
+    expect(media[0]!.url).toBe(`${BASE}/strip/x.webp`);
+    expect(media[0]!.meta.original.width).toBe(1642);
+  });
+
+  it('mete las estadísticas en el cuerpo, en negrita y con &ensp;', () => {
+    // Ahí está la negrita y el espaciado compacto: no es la fuente, es el HTML.
+    expect(doc.content).toBe('texto del post<br><br><b>💬 55&ensp;🔁 1.5K&ensp;❤️ 18.1K&ensp;👁️ 168.2K</b>');
+  });
+
+  it('lleva avatar, autor y fecha, que es lo que OpenGraph no puede dar', () => {
+    const account = doc.account as Record<string, unknown>;
+    expect(account.display_name).toBe('Autora Ejemplo');
+    expect(account.acct).toBe('autor');
+    expect(account.avatar).toContain('pbs.twimg.com');
+    expect(doc.created_at).toBe('2026-08-25T20:20:13.000Z');
+  });
+
+  it('escapa el texto del post también aquí', () => {
+    const evil = mastodonStatus({ ...status, text: '<script>x</script>' }, plan, BASE);
+    expect(evil.content).not.toContain('<script>');
+  });
+
+  it('una sola foto se declara tal cual, sin componer nada', () => {
+    const one = statusWith([[800, 600]]);
+    const media = mastodonStatus(one, planLayout(one, 'auto'), BASE).media_attachments as {
+      url: string;
+    }[];
+    expect(media[0]!.url).toContain('pbs.twimg.com');
+  });
+});
+
+describe('a Discord se le retira el og:image', () => {
+  const status = statusWith(REAL.makokoto);
+  const plan = planLayout(status, 'auto');
+
+  it('para que no monte además el embed plano de OpenGraph', () => {
+    const html = embedHtml(status, plan, BASE, true);
+    expect(html).toContain('type="application/activity+json"');
+    expect(metaOf(html, 'og:image')).toBeUndefined();
+  });
+
+  it('el resto de clientes siguen recibiendo el og:image de siempre', () => {
+    const html = embedHtml(status, plan, BASE, false);
+    expect(html).not.toContain('activity+json');
+    expect(metaOf(html, 'og:image')).toContain('/strip/');
   });
 });

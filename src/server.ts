@@ -3,7 +3,8 @@ import rateLimit from '@fastify/rate-limit';
 import { mkdir } from 'node:fs/promises';
 import { config } from './config.js';
 import { FxError, fetchStatus, photosOf } from './fx.js';
-import { embedHtml, errorHtml, landingHtml, oembedJson } from './html.js';
+import { embedHtml, errorHtml, imageUrl, landingHtml, oembedJson } from './html.js';
+import { mastodonStatus } from './mastodon.js';
 import { baseUrlFor, hostLayout, isCrawler } from './http.js';
 import { isLayoutMode, planLayout, type LayoutMode } from './layout.js';
 import { formatFromExt, pruneCache, readCached, renderStrip, type StripFormat } from './strip.js';
@@ -63,6 +64,40 @@ export async function build() {
       .header('cache-control', 'public, max-age=300')
       .send(oembedJson(status));
   });
+
+  /*
+   * API con forma de Mastodon. Discord la consulta al ver el
+   * <link rel="alternate" type="application/activity+json"> y monta el embed
+   * desde aquí: avatar, texto en grande, adjunto y pie con la fecha.
+   * Declaramos un solo adjunto, la tira, para que no la despiece en cuadrícula.
+   */
+  app.get<{ Params: { id: string } }>('/api/v1/statuses/:id', async (req, reply) => {
+    const { id } = req.params;
+    if (!STATUS_ID.test(id)) return reply.code(404).send({ error: 'id inválido' });
+
+    const status = await fetchStatus(id).catch(() => null);
+    if (!status) return reply.code(404).send({ error: 'post no encontrado' });
+
+    const base = baseUrlFor(req.headers, req.protocol);
+    const plan = planLayout(status, resolveMode(req.query, req.headers));
+    return reply
+      .type('application/json; charset=utf-8')
+      .header('cache-control', 'public, max-age=300')
+      .send(mastodonStatus(status, plan, base, imageUrl(status.id, plan, base)));
+  });
+
+  // Sólo existe para que el enlace del <link rel="alternate"> no sea un 404:
+  // Discord saca de él el id y consulta /api/v1/statuses/:id.
+  app.get<{ Params: { handle: string; id: string } }>(
+    '/users/:handle/statuses/:id',
+    async (req, reply) => {
+      const { handle, id } = req.params;
+      if (!HANDLE.test(handle) || !STATUS_ID.test(id)) {
+        return reply.code(404).send({ error: 'enlace no reconocido' });
+      }
+      return reply.redirect(xUrl(handle, id), 302);
+    },
+  );
 
   app.get<{ Params: { file: string }; Querystring: { layout?: string } }>(
     '/strip/:file',
@@ -129,7 +164,8 @@ export async function build() {
     try {
       const status = await fetchStatus(id);
       const plan = planLayout(status, resolveMode(req.query, req.headers));
-      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol));
+      const isDiscord = (req.headers['user-agent'] ?? '').includes('Discordbot');
+      return embedHtml(status, plan, baseUrlFor(req.headers, req.protocol), isDiscord);
     } catch (err) {
       const reason =
         err instanceof FxError && err.code === 404

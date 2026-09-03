@@ -64,7 +64,7 @@ const meta = (pairs: [string, string | number | undefined][]) =>
     .join('\n');
 
 /** URL absoluta de la imagen del embed, o undefined si el post no tiene fotos. */
-function imageUrl(id: string, plan: Plan, baseUrl: string): string | undefined {
+export function imageUrl(id: string, plan: Plan, baseUrl: string): string | undefined {
   if (plan.kind === 'none') return undefined;
   // Con una sola foto no se compone nada: se enlaza pbs.twimg.com tal cual.
   if (plan.kind === 'passthrough') return plan.url;
@@ -88,7 +88,16 @@ ${body}
 `;
 }
 
-export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string {
+/** Ruta que Discord consulta para el documento estilo Mastodon. */
+export const activityUrl = (status: FxStatus, baseUrl: string) =>
+  `${baseUrl}/users/${status.author.screen_name}/statuses/${status.id}`;
+
+/**
+ * @param forDiscord Discord entiende el documento Mastodon, que da avatar,
+ *   texto en grande y pie con fecha. Cuando se le ofrece ese camino se le
+ *   retira el og:image para que no monte además el embed plano de OpenGraph.
+ */
+export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string, forDiscord = false): string {
   const image = imageUrl(status.id, plan, baseUrl);
   const author = authorLine(status);
   const original = status.url;
@@ -115,9 +124,9 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string
       ['og:description', stats],
       // Da la fecha del post al pie del embed.
       ['article:published_time', published],
-      ['og:image', image],
-      ['og:image:width', plan.kind === 'none' ? undefined : plan.width],
-      ['og:image:height', plan.kind === 'none' ? undefined : plan.height],
+      ['og:image', forDiscord ? undefined : image],
+      ['og:image:width', plan.kind === 'none' || forDiscord ? undefined : plan.width],
+      ['og:image:height', plan.kind === 'none' || forDiscord ? undefined : plan.height],
       // summary_large_image es lo que hace que Discord use imagen grande y no miniatura.
       ['twitter:card', image ? 'summary_large_image' : 'summary'],
       ['twitter:title', text || author],
@@ -131,6 +140,9 @@ export function embedHtml(status: FxStatus, plan: Plan, baseUrl: string): string
       ? `<link rel="apple-touch-icon" href="${escapeHtml(status.author.avatar_url)}">`
       : '',
     `<link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembed)}" title="${escapeHtml(author)}">`,
+    forDiscord
+      ? `<link rel="alternate" type="application/activity+json" href="${escapeHtml(activityUrl(status, baseUrl))}">`
+      : '',
     `<meta http-equiv="refresh" content="0; url=${escapeHtml(original)}">`,
     `<link rel="canonical" href="${escapeHtml(original)}">`,
   ]
