@@ -62,23 +62,26 @@
   /* Franjas verticales de fondo: el mismo motivo de la tira. */
   .franjas { position: absolute; inset: 0; z-index: 0; display: flex; gap: 10px; opacity: .05; pointer-events: none; }
   .franjas span { flex: 1; background: linear-gradient(180deg, var(--texto), transparent 70%); }
-  header > .envoltorio { position: relative; z-index: 1; }
+  /* La cabecera va centrada: con el texto a la izquierda y el hueco a la
+     derecha, en pantallas anchas parecía cortado a la mitad. */
+  header > .envoltorio { position: relative; z-index: 1; text-align: center; }
 
-  .marca { display: flex; align-items: center; gap: .85rem; margin-bottom: 2rem; }
+  .marca { display: flex; align-items: center; justify-content: center; gap: .85rem; margin-bottom: 2rem; }
   .marca img { width: 44px; height: 44px; display: block; }
   .marca b { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.03em; }
 
-  h1 { font-size: clamp(2.4rem, 7vw, 4.1rem); max-width: 17ch; }
+  h1 { font-size: clamp(2.4rem, 7vw, 4.1rem); max-width: 20ch; margin-inline: auto; text-wrap: balance; }
   h1 em { font-style: normal; background: linear-gradient(100deg, var(--rosa), var(--azul) 55%, var(--verde)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .entradilla { font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--suave); max-width: 56ch; margin: 1.4rem 0 0; }
+  .entradilla { font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--suave); max-width: 56ch; margin: 1.4rem auto 0; text-wrap: pretty; }
 
   /* ---- Conversor -------------------------------------------------------- */
-  .conversor { margin-top: 2.75rem; max-width: 46rem; }
+  .conversor { margin: 2.75rem auto 0; max-width: 46rem; }
   .campo { position: relative; }
   .campo input {
     width: 100%; padding: 1.05rem 1.2rem; border-radius: 14px;
     border: 1px solid var(--linea); background: var(--panel); color: var(--texto);
-    font: inherit; font-size: 1rem; box-shadow: var(--sombra); transition: border-color .15s, box-shadow .15s;
+    font: inherit; font-size: 1rem; text-align: left;
+    box-shadow: var(--sombra); transition: border-color .15s, box-shadow .15s;
   }
   .campo input::placeholder { color: var(--tenue); }
   .campo input:focus { outline: none; border-color: var(--azul); box-shadow: var(--sombra), 0 0 0 4px color-mix(in srgb, var(--azul) 18%, transparent); }
@@ -89,7 +92,7 @@
     flex: 1; min-width: 0; padding: .95rem 1.1rem; border-radius: 12px;
     background: var(--fondo2); border: 1px solid var(--linea);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92rem;
-    overflow-x: auto; white-space: nowrap; display: block;
+    overflow-x: auto; white-space: nowrap; display: block; text-align: left;
   }
   button.copiar {
     flex: 0 0 auto; padding: .95rem 1.3rem; border-radius: 12px; border: 0; cursor: pointer;
@@ -102,7 +105,7 @@
   .aviso { margin-top: .7rem; font-size: .92rem; color: var(--tenue); min-height: 1.4em; }
   .aviso.error { color: var(--rosa); }
 
-  .espejos { margin-top: 1.5rem; display: none; flex-wrap: wrap; gap: .45rem; align-items: center; }
+  .espejos { margin-top: 1.5rem; display: none; flex-wrap: wrap; gap: .45rem; align-items: center; justify-content: center; }
   .espejos.visible { display: flex; }
   .espejos > span { font-size: .88rem; color: var(--tenue); margin-right: .35rem; }
   .espejos button {
@@ -115,14 +118,17 @@
 
   /* ---- Secciones -------------------------------------------------------- */
   section { padding: clamp(3rem, 8vw, 5.5rem) 0; border-top: 1px solid var(--linea); }
-  section > .envoltorio > h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); }
-  .subtitulo { color: var(--suave); max-width: 62ch; margin-top: .9rem; }
+  /* Encabezados de sección centrados, por el mismo motivo que la cabecera.
+     El contenido de debajo (tarjetas, tabla, figuras) sigue alineado a la
+     izquierda, que es como se lee bien un bloque largo. */
+  section > .envoltorio > h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); text-align: center; }
+  .subtitulo { color: var(--suave); max-width: 62ch; margin: .9rem auto 0; text-align: center; text-wrap: pretty; }
 
   /* ---- Demostración ----------------------------------------------------- */
   .demo { margin-top: 2.5rem; display: grid; gap: 1.5rem; }
   @media (min-width: 60rem) { .demo { grid-template-columns: 1fr 1fr; align-items: start; } }
   figure { margin: 0; }
-  figcaption { display: flex; align-items: baseline; gap: .6rem; margin-bottom: .8rem; }
+  figcaption { display: flex; align-items: baseline; justify-content: center; gap: .6rem; margin-bottom: .8rem; flex-wrap: wrap; }
   .etiqueta { font-size: .74rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; padding: .22rem .6rem; border-radius: 6px; }
   .etiqueta.mal { color: var(--rosa); background: color-mix(in srgb, var(--rosa) 14%, transparent); }
   .etiqueta.bien { color: var(--verde); background: color-mix(in srgb, var(--verde) 15%, transparent); }

@@ -150,11 +150,23 @@ pm2 set pm2-logrotate:max_size 10M
 pm2 set pm2-logrotate:retain 7
 ```
 
-⚠️ **Nota**: `pm2 restart` **no relee** `ecosystem.config.cjs`. Si tocas ese fichero (el puerto, los `node_args`, la ruta del script), hay que recrear la app:
+⚠️ **Nota**: `pm2 restart bayeux` (por nombre) **no relee** `ecosystem.config.cjs`. pm2 se
+queda con la configuración que registró la primera vez. Para que la relea hay que pasarle
+el fichero:
+
+```bash
+pm2 restart ecosystem.config.cjs        # relee puerto, node_args, memoria, rutas...
+```
+
+Con una excepción: el bloque `env` **no** se aplica ni así, ni con `--update-env`. Para
+cambiar variables por esa vía hay que recrear la app:
 
 ```bash
 pm2 delete bayeux && pm2 start ecosystem.config.cjs && pm2 save
 ```
+
+(En este proyecto da igual, porque las variables no vienen de `env` sino del `.env` que
+carga Node con `--env-file-if-exists`.)
 
 ### Comprobación rápida
 
