@@ -45,15 +45,26 @@ export const config = {
   // Presupuesto total de píxeles del lienzo. 12 MP ≈ 48 MB en RGBA sin comprimir.
   maxPixels: num('MAX_PIXELS', 12_000_000),
   maxDownloadBytes: num('MAX_DOWNLOAD_BYTES', 12 * 1024 * 1024),
-  // `auto` reproduce la separación que enseña X: escala la fila a una altura
-  // fija y la deja desbordar a lo ancho con scroll, así que el hueco es una
-  // proporción de la altura y no depende del ancho total.
-  // Medido en un navegador al 100% de zoom y 100% de escala: una pieza de
-  // 1206px de alto se ve a 702, con 6px de hueco. Un número fijo desactiva
-  // el cálculo, y ?gap=N lo fuerza por post.
+  /*
+   * `auto` reproduce la separación que enseña X. El hueco es una proporción de
+   * la altura (X escala la fila a una altura fija y la deja desbordar con
+   * scroll, así que el ancho no entra en la cuenta).
+   *
+   * X separa siempre 6 píxeles CSS: 4 entre bordes más 1 de borde por lado.
+   * Eso es idéntico en escritorio y en móvil. Lo que cambia es a qué tamaño
+   * pinta los trozos, y por eso la PROPORCIÓN no es la misma:
+   *
+   *   layout ancho    (escritorio al 100%)      trozo de 700 CSS  ->  0,857 %
+   *   layout estrecho (móvil, o zoom al 300%)   trozo de 464 CSS  ->  1,292 %
+   *
+   * Se calibra sobre el estrecho, que es donde encajan los cortes: coincide
+   * con lo medido sobre la propia imagen (15 a 25 px de origen) y con cómo se
+   * ve. Los valores son los píxeles físicos de una captura a DPR 3, sin
+   * convertir: sólo se usa el cociente, así que las unidades se cancelan.
+   */
   gap: str('GAP', 'auto') === 'auto' ? ('auto' as const) : num('GAP', 6),
-  xDisplayHeight: num('X_DISPLAY_HEIGHT', 702),
-  xDisplayGap: num('X_DISPLAY_GAP', 6),
+  xDisplayHeight: num('X_DISPLAY_HEIGHT', 1393),
+  xDisplayGap: num('X_DISPLAY_GAP', 18),
   // `transparent` deja el hueco del color del chat, como se ve en otros embeds.
   // Cualquier color de CSS lo pinta fijo.
   bgColor: str('BG_COLOR', 'transparent'),

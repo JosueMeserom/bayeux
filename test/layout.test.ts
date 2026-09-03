@@ -49,13 +49,13 @@ describe('geometría de la fila', () => {
     const plan = planLayout(statusWith(REAL.makokoto), 'row');
     if (plan.kind !== 'row') throw new Error('esperaba row');
 
-    // Altura tope 1200 (las fuentes son 1206) y hueco automático: X escala la
-    // fila a 702px de alto y deja 6px, o sea 1200*6/702 = 10px a esta altura.
+    // Altura tope 1200 (las fuentes son 1206) y hueco automático: la
+    // proporción de X en su layout estrecho, 18/1393, da 16px a esta altura.
     expect(plan.height).toBe(1200);
-    expect(plan.gap).toBe(10);
+    expect(plan.gap).toBe(16);
     expect(plan.panels.map((p) => p.width)).toEqual([408, 407, 405, 404]);
-    expect(plan.panels.map((p) => p.left)).toEqual([0, 418, 835, 1250]);
-    expect(plan.width).toBe(1654);
+    expect(plan.panels.map((p) => p.left)).toEqual([0, 424, 847, 1268]);
+    expect(plan.width).toBe(1672);
     expect(plan.panels.every((p) => p.top === 0)).toBe(true);
   });
 
@@ -82,10 +82,10 @@ describe('geometría de la fila', () => {
 
 describe('hueco automático', () => {
   it('es proporcional a la altura, como el que enseña X', () => {
-    // 6px sobre 702 de alto. Al doble de altura, el doble de hueco.
-    expect(gapFor(702, defaultOpts())).toBe(6);
-    expect(gapFor(1404, defaultOpts())).toBe(12);
-    expect(gapFor(1200, defaultOpts())).toBe(10);
+    // 18 sobre 1393 de alto. Al doble de altura, el doble de hueco.
+    expect(gapFor(1393, defaultOpts())).toBe(18);
+    expect(gapFor(2786, defaultOpts())).toBe(36);
+    expect(gapFor(1200, defaultOpts())).toBe(16);
   });
 
   it('un GAP numérico desactiva el cálculo', () => {
@@ -95,7 +95,7 @@ describe('hueco automático', () => {
 
   it('el plan expone el hueco ya resuelto, para que viaje en la URL', () => {
     const plan = planLayout(statusWith(REAL.momote), 'row');
-    expect(plan.kind === 'row' && plan.gap).toBe(10);
+    expect(plan.kind === 'row' && plan.gap).toBe(16);
   });
 });
 

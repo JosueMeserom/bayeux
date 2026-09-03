@@ -102,16 +102,24 @@ persona su dibujo. Unos compensan el hueco que va a meter X y otros cortan al
 ras.
 
 Por eso Bayeux no intenta adivinar lo que falta, sino **reproducir lo que se ve
-en X**, que es la referencia con la que trabaja quien dibuja. Medido a zoom 100%:
-una pieza de 1206px de alto se muestra a 702px, con 6px de separación. Como el
-hueco es una proporción de la altura (`6/702`), sale directamente de los
-metadatos y no hay que descargar ninguna imagen para calcularlo.
+en X**, que es la referencia con la que trabaja quien dibuja.
 
-Que sea una proporción de la **altura** y no del ancho no es casual: cuando la
-fila no cabe, X **no la encoge**, la deja desbordar con scroll horizontal. O sea
-que el ancho del contenedor no entra en la cuenta.
+X separa siempre **6 píxeles CSS**: 4 entre bordes más 1 de borde por lado. Eso
+es idéntico en escritorio y en móvil. Lo que cambia es a qué tamaño pinta los
+trozos, así que la **proporción** no es la misma:
 
-Con la altura de 1200px por defecto, eso son 10px. Si un post concreto pide otra
+| Layout | Alto del trozo | Hueco / alto |
+|---|---|---|
+| Ancho (escritorio al 100%) | 700 px CSS | 0,857 % |
+| Estrecho (móvil, o zoom al 300%) | 464 px CSS | 1,292 % |
+
+Se calibra sobre el **estrecho**, que es donde encajan los cortes. Con la altura
+de 1200px por defecto eso son **16px**.
+
+Que el hueco sea una proporción de la **altura** y no del ancho no es casual:
+cuando la fila no cabe, X **no la encoge**, la deja desbordar con scroll
+horizontal. El ancho del contenedor no entra en la cuenta, y por eso todo esto
+se calcula con los metadatos, sin descargar ninguna imagen. Si un post concreto pide otra
 cosa, `?gap=N` lo fuerza.
 
 ---
@@ -291,8 +299,8 @@ Todas tienen un valor por defecto razonable. El fichero completo y comentado est
 | `MAX_PIXELS` | `12000000` | Presupuesto del lienzo. Si se pasa, la altura baja sola |
 | `MAX_DOWNLOAD_BYTES` | `12582912` | Tope por imagen descargada |
 | `GAP` | `auto` | Separación entre paneles. Ver la sección de abajo |
-| `X_DISPLAY_HEIGHT` | `702` | Alto al que X escala la fila, a zoom 100% |
-| `X_DISPLAY_GAP` | `6` | Hueco que deja X entre trozos, a zoom 100% |
+| `X_DISPLAY_HEIGHT` | `1393` | Alto del trozo en la captura de referencia |
+| `X_DISPLAY_GAP` | `18` | Separación en esa misma captura. Solo se usa el cociente |
 | `BG_COLOR` | `transparent` | Color del hueco. Con `transparent` se ve el fondo del chat |
 | `WEBP_QUALITY` | `82` | Calidad del WebP |
 | `JPEG_QUALITY` | `88` | Calidad del JPEG |
