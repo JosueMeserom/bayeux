@@ -131,8 +131,8 @@ reales de la imagen generada.
 
 ## Despliegue detrás de un reverse proxy
 
-El proceso escucha **solo en `127.0.0.1`**. Quien expone al exterior es el proxy,
-que además resuelve TLS.
+El proceso **no escucha nunca en `0.0.0.0`**. Quien expone al exterior es el
+proxy, que además resuelve TLS.
 
 El proxy tiene que pasar dos cabeceras, porque de ellas sale la URL absoluta del
 `og:image`:
@@ -157,7 +157,31 @@ Dos cosas que hay que configurar bien:
 - **`TRUST_PROXY`**: la IP o el CIDR del proxy. **No lo pongas a `true`**: si lo
   haces, cualquiera puede falsear `X-Forwarded-For`, el rate limit verá todas las
   peticiones como si vinieran de una IP distinta y dejará de servir para nada.
-  Si el proxy corre en la misma máquina, `127.0.0.1` es lo correcto.
+
+### Si tu proxy corre dentro de un contenedor
+
+Es fácil pasarlo por alto, y falla de una forma poco obvia: el proxy responde
+`502` y no hay ni una línea en los logs de Bayeux, porque la conexión nunca llega.
+
+Dentro de un contenedor, `127.0.0.1` es **el propio contenedor**. Si Bayeux se
+ata a loopback del host, el proxy no puede alcanzarlo. Hay que atarlo a la puerta
+de enlace del puente Docker, que es el host visto desde los contenedores:
+
+```bash
+HOST=172.17.0.1            # no 127.0.0.1
+TRUST_PROXY=172.17.0.0/16  # la red del contenedor que hace de proxy
+```
+
+Sigue sin ser `0.0.0.0`: escucha solo en la interfaz del puente, no en tu red
+local. Para saber si tu proxy está en un contenedor y en qué red:
+
+```bash
+cat /proc/$(pgrep -x caddy)/cgroup     # …/docker-<id>.scope si es un contenedor
+ip -4 addr show docker0 | grep inet    # la IP de la puerta de enlace
+```
+
+`ps aux` **no** sirve para esto: el host lista también los procesos de dentro de
+los contenedores, así que un proxy en Docker parece un proceso nativo.
 
 ### Ejemplo con Caddy
 
@@ -166,13 +190,14 @@ Caddy manda `X-Forwarded-Host` y `X-Forwarded-Proto` por defecto en
 
 ```caddyfile
 bayeux.example.net, tirax.example.net, panox.example.net {
-    encode zstd gzip
     reverse_proxy 127.0.0.1:3000
+    # Con Caddy en un contenedor: reverse_proxy 172.17.0.1:3000
 }
 ```
 
-Los certificados de Let's Encrypt los resuelve Caddy solo. Con nginx o Apache
-tendrás que añadir las cabeceras a mano.
+Los certificados de Let's Encrypt los resuelve Caddy solo, y como los hostnames
+están escritos explícitamente los pide al recargar, no en la primera visita. Con
+nginx o Apache tendrás que añadir las cabeceras a mano.
 
 ## Variables de entorno
 
