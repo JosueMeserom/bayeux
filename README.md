@@ -420,6 +420,28 @@ Sin vender humo:
 
 ## 🧪 Desarrollo
 
+### Userscript para copiar enlaces
+
+`tools/bayeux.user.js` añade un botón a cada post de X, **en la barra de acciones justo
+después de Compartir**, que copia el enlace de Bayeux de ese post. Funciona igual en la
+línea de tiempo y en la página de un post concreto.
+
+Se instala con [Tampermonkey](https://www.tampermonkey.net/) o
+[Violentmonkey](https://violentmonkey.github.io/): abres el fichero, el gestor lo detecta
+por su cabecera `// ==UserScript==` y ofrece instalarlo. Lo único que hay que tocar son
+las dos constantes de arriba:
+
+```js
+const HOST = 'bayeux.ultrak.dynu.net';   // tu subdominio
+const PARAMS = '';                       // p.ej. '?layout=row' si lo quieres siempre
+```
+
+⚠️ **Nota**: X reescribe su interfaz cada poco. El script se apoya sólo en dos cosas que
+llevan años estables, el `article` de cada post y los `data-testid` de sus botones. Si
+algún día deja de aparecer el botón, lo más probable es que hayan cambiado uno de los dos.
+
+### Comparar ajustes de compresión
+
 En `tools/comparar.html` hay una página suelta (se abre con doble clic, no se
 despliega) que pinta la misma tira con dos juegos de parámetros al lado, con su
 peso y su tiempo de descarga. Sirve para decidir ajustes de compresión mirando,
