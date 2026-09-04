@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.6
+// @version      1.0.7
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -26,6 +26,19 @@
   // Parámetros fijos que quieras añadir siempre, por ejemplo '?layout=row'.
   // Déjalo vacío para el comportamiento automático.
   const PARAMS = '';
+
+  /*
+   * Repartir TODOS los iconos de la barra a la misma distancia.
+   *
+   * X agrupa a propósito Marcador y Compartir pegados al final, y las
+   * extensiones se cuelgan detrás con su propio margen. Meter un botón más en
+   * medio parte ese bloque y queda raro. Con esto la barra pasa a repartir por
+   * igual, que es lo que se ve bien cuando hay siete u ocho iconos.
+   *
+   * A false, el botón se limita a imitar la separación de las demás
+   * extensiones y se respeta el diseño de X tal cual.
+   */
+  const EQUIDISTANTE = true;
 
   /* ─── A partir de aquí, poco que tocar ──────────────────────────────────── */
 
@@ -66,6 +79,33 @@
     .bayeux-btn.mal .bayeux-ico { opacity: 1; color: #eb459e; background-color: rgba(235,69,158,.12); }
     .bayeux-btn svg { width: var(--bayeux-icono, 18.75px); height: var(--bayeux-icono, 18.75px); fill: currentColor; }
   `;
+
+  /*
+   * El reparto por igual se hace con una regla, no tocando el DOM.
+   *
+   * `:has(> .bayeux-btn)` limita el efecto a las barras donde hemos puesto
+   * botón, y al ser CSS no hay nada que React pueda pisar en un re-render, que
+   * es lo que pasaría añadiendo una clase o estilos en línea.
+   *
+   * Qué se neutraliza y por qué:
+   *  - `flex-grow`: los cuatro contadores llevan `1 1 0%` y se comen todo el
+   *    espacio libre. Sin eso, `space-between` lo reparte por igual entre todos.
+   *  - los márgenes propios de X y de las extensiones, que son justo los que
+   *    crean el bloque apretado del final.
+   * Se deja `flex-shrink: 1` para que en una ventana estrecha encojan en vez
+   * de desbordar.
+   */
+  if (EQUIDISTANTE) {
+    const reparto = document.createElement('style');
+    reparto.textContent = `
+      div[role="group"]:has(> .bayeux-btn) > * {
+        flex: 0 1 auto !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+    `;
+    document.head.appendChild(reparto);
+  }
   document.head.appendChild(css);
 
   // Tres paneles con su separación: el logo, reducido a lo que se lee a 19px.
@@ -258,9 +298,11 @@
     // Se despega de los botones de X igual que hacen las demás extensiones.
     // Media Harvest además se pone `order`, así que se queda a nuestra derecha
     // sola: no hay que colocarse a mano respecto a ella.
-    const { izq, der } = margenes(barra);
-    b.style.marginLeft = `${izq}px`;
-    if (der) b.style.marginRight = `${der}px`;
+    if (!EQUIDISTANTE) {
+      const { izq, der } = margenes(barra);
+      b.style.marginLeft = `${izq}px`;
+      if (der) b.style.marginRight = `${der}px`;
+    }
     barra.appendChild(b);
   }
 

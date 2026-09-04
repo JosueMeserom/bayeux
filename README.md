@@ -489,12 +489,30 @@ Tampoco fija medidas propias: **mide el icono de un botón vecino y se ajusta a 
 X usa 18,75px en la línea de tiempo y 22,5px en la página de un post. Y se estira a todo el
 alto de la barra en vez de llevar altura fija, que es lo que lo descuadraba 6px.
 
-Sobre la posición: los cuatro contadores de X llevan `flex: 1 1 0%` y se comen todo el
-espacio libre, así que lo que va detrás queda pegado con los 4px de hueco de la barra. Las
-extensiones que añaden botones se despegan con un margen propio (Media Harvest usa 45px en
-la página de un post y 12 en la línea de tiempo). El script **copia esa separación de quien
-ya esté ahí**, y si no hay nadie usa esos mismos valores, así que el botón cae siempre en
-la misma «zona de añadidos» y no pegado al de Compartir.
+Sobre la posición: X agrupa a propósito Marcador y Compartir pegados al final, porque sus
+cuatro contadores llevan `flex: 1 1 0%` y se comen todo el espacio libre. Meter un botón
+más en medio de ese bloque queda raro se ponga donde se ponga.
+
+Por eso el script **reparte toda la barra por igual**, con una sola regla:
+
+```css
+div[role="group"]:has(> .bayeux-btn) > * {
+  flex: 0 1 auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+```
+
+Neutraliza el `flex-grow` de los contadores y los márgenes propios de X y de otras
+extensiones, y deja que `justify-content: space-between` haga el reparto. Medido: los
+huecos pasan a ser idénticos (38,1px con siete iconos, 47,6 con seis) sin cambiar el ancho
+total de la barra.
+
+⚠️ **Nota**: esto sí pisa estilos de X, al contrario que el resto del script. El `:has()`
+lo acota a las barras donde hemos puesto botón, y al ser CSS no hay nada que React pueda
+deshacer en un re-render. Si no te convence, `EQUIDISTANTE = false` arriba del fichero
+vuelve a respetar el diseño de X y limitarse a imitar la separación de las demás
+extensiones.
 
 ### Comparar ajustes de compresión
 
