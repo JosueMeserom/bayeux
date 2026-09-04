@@ -33,8 +33,16 @@ export interface FxVideo {
   thumbnail_url?: string;
 }
 
+/** Lo que trae cualquier cosa de la que se pueda sacar contenido multimedia. */
+export interface ConMedia {
+  media?: {
+    photos?: FxPhoto[];
+    videos?: FxVideo[];
+  };
+}
+
 /** Sólo lo que se usa de un post citado; el objeto real es un status entero. */
-export interface FxQuote {
+export interface FxQuote extends ConMedia {
   id: string;
   url: string;
   text: string;
@@ -79,18 +87,30 @@ export class FxError extends Error {
 }
 
 /** Fotos reales del post, sin GIFs, respetando el orden del autor. */
-export function photosOf(status: FxStatus): FxPhoto[] {
-  return (status.media?.photos ?? []).filter((p) => p.type === 'photo' && p.width > 0 && p.height > 0);
+export function photosOf(post: ConMedia): FxPhoto[] {
+  return (post.media?.photos ?? []).filter((p) => p.type === 'photo' && p.width > 0 && p.height > 0);
 }
 
 /** Un vídeo o GIF en el post descarta la tira: no hay nada que coser. */
-export function hasMotion(status: FxStatus): boolean {
-  return (status.media?.videos ?? []).length > 0;
+export function hasMotion(post: ConMedia): boolean {
+  return (post.media?.videos ?? []).length > 0;
 }
 
 /** El vídeo del post, si lo hay. X permite como mucho uno por post. */
-export function videoOf(status: FxStatus): FxVideo | undefined {
-  return (status.media?.videos ?? []).find((v) => v.url && v.width > 0 && v.height > 0);
+export function videoOf(post: ConMedia): FxVideo | undefined {
+  return (post.media?.videos ?? []).find((v) => v.url && v.width > 0 && v.height > 0);
+}
+
+/**
+ * De dónde salen los medios que enseña el embed.
+ *
+ * Si el post no trae nada propio pero cita a otro que sí, se enseñan los del
+ * citado: es lo que se ve en X y sin ello un «mira esto» quedaría sin imagen.
+ * Lo propio manda siempre que exista.
+ */
+export function mediaSource(status: FxStatus): ConMedia {
+  const propio = photosOf(status).length > 0 || hasMotion(status);
+  return propio || !status.quote ? status : status.quote;
 }
 
 export async function fetchStatus(id: string): Promise<FxStatus> {

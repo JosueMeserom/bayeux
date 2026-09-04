@@ -14,7 +14,7 @@ export function statusWith(
     videos?: number;
     gifPhotos?: number;
     gif?: boolean;
-    quote?: { name: string; screen_name: string; text: string };
+    quote?: { name: string; screen_name: string; text: string; dims?: [number, number][] };
   } = {},
 ): FxStatus {
   const photos = dims.map(([w, h], i) => photo(w, h, i));
@@ -43,6 +43,9 @@ export function statusWith(
             url: `https://x.com/${extra.quote.screen_name}/status/2000000000000000000`,
             text: extra.quote.text,
             author: { name: extra.quote.name, screen_name: extra.quote.screen_name },
+            ...(extra.quote.dims
+              ? { media: { photos: extra.quote.dims.map(([w, h], i) => photo(w, h, 50 + i)) } }
+              : {}),
           },
         }
       : {}),

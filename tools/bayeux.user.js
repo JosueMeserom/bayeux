@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.5
+// @version      1.0.6
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -113,24 +113,34 @@
   }
 
   /**
-   * Separación con la que se despega la «zona de botones añadidos».
+   * Márgenes con los que el botón se separa de sus vecinos.
    *
    * X reparte así: sus cuatro contadores llevan `flex: 1 1 0%` y se comen todo
    * el espacio libre, de modo que lo que va detrás queda pegado con los 4px de
    * hueco de la barra. Nada queda equidistante, ni X lo pretende.
    *
-   * Las extensiones que añaden botones se despegan con un margen propio. Media
-   * Harvest usa 45px en la página de un post y 12 en la línea de tiempo, medido
-   * sobre el DOM real. Se copia el de quien ya esté ahí, para ir a juego; si no
-   * hay nadie, se usan esos mismos valores, que son la única referencia que
-   * tenemos de cómo se ve bien.
+   * La separación se saca en proporción al alto de la barra, tomando como
+   * referencia la página de un post: 45px de margen sobre 48 de alto, que es lo
+   * que usan las extensiones ahí y se ve bien. En la línea de tiempo, que mide
+   * 34,75, salen 33.
+   *
+   * El margen DERECHO existe para que el hueco con el siguiente botón añadido
+   * sea el mismo que con el anterior. Media Harvest se separa 12 en la línea de
+   * tiempo y 45 en un post, así que hay que compensar la diferencia; si no hay
+   * nadie detrás no se pone, o el botón quedaría despegado del borde.
+   *
+   * Cabe de sobra: en la barra estrecha esto le quita 42px repartidos entre
+   * cuatro contadores de 89,8, cuyo contenido real ronda los 45.
    */
-  function margenDeZona(barra) {
+  function margenes(barra) {
+    const sep = Math.round((barra.getBoundingClientRect().height * 45) / 48);
+    let ajeno = 0;
     for (const c of barra.children) {
+      if (c.classList.contains('bayeux-btn')) continue;
       const m = parseFloat(getComputedStyle(c).marginLeft) || 0;
-      if (m > 8) return m;
+      if (m > 8) ajeno = Math.max(ajeno, m);
     }
-    return barra.getBoundingClientRect().height >= 40 ? 45 : 12;
+    return { izq: sep, der: ajeno ? Math.max(0, sep - ajeno) : 0 };
   }
 
   /**
@@ -248,7 +258,9 @@
     // Se despega de los botones de X igual que hacen las demás extensiones.
     // Media Harvest además se pone `order`, así que se queda a nuestra derecha
     // sola: no hay que colocarse a mano respecto a ella.
-    b.style.marginLeft = `${margenDeZona(barra)}px`;
+    const { izq, der } = margenes(barra);
+    b.style.marginLeft = `${izq}px`;
+    if (der) b.style.marginRight = `${der}px`;
     barra.appendChild(b);
   }
 

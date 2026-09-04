@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { hasMotion, photosOf, videoOf, type FxPhoto, type FxStatus } from './fx.js';
+import { hasMotion, mediaSource, photosOf, videoOf, type FxPhoto, type FxStatus } from './fx.js';
 
 export type LayoutMode = 'row' | 'grid' | 'auto';
 
@@ -196,9 +196,13 @@ function planGrid(photos: FxPhoto[], o: LayoutOpts): Plan {
 }
 
 export function planLayout(status: FxStatus, requested: LayoutMode = 'auto', o = defaultOpts()): Plan {
+  // Si el post no trae medios propios pero cita a otro que sí, se enseñan los
+  // del citado.
+  const fuente = mediaSource(status);
+
   // El vídeo manda sobre todo lo demás, incluido un ?layout= forzado: no hay
   // fotos que coser y lo que el cliente tiene que recibir es el MP4.
-  const video = videoOf(status);
+  const video = videoOf(fuente);
   if (video) {
     const plan: Plan = {
       kind: 'video',
@@ -210,7 +214,7 @@ export function planLayout(status: FxStatus, requested: LayoutMode = 'auto', o =
     return video.thumbnail_url ? { ...plan, thumbnail: video.thumbnail_url } : plan;
   }
 
-  const photos = photosOf(status).slice(0, o.maxPhotos);
+  const photos = photosOf(fuente).slice(0, o.maxPhotos);
 
   if (photos.length === 0) return { kind: 'none' };
   if (photos.length === 1) {
@@ -218,6 +222,6 @@ export function planLayout(status: FxStatus, requested: LayoutMode = 'auto', o =
     return { kind: 'passthrough', url: p.url, width: p.width, height: p.height };
   }
 
-  const row = requested === 'auto' ? looksLikeStrip(photos, hasMotion(status), o) : requested === 'row';
+  const row = requested === 'auto' ? looksLikeStrip(photos, hasMotion(fuente), o) : requested === 'row';
   return row ? planRow(photos, o) : planGrid(photos, o);
 }

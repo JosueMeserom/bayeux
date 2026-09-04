@@ -295,9 +295,18 @@ describe('contexto de un post citado', () => {
   it('sale como cita de bloque, que es lo que le pinta la barra lateral', () => {
     const c = doc({ quote: cita });
     expect(c).toContain('<blockquote>');
-    expect(c).toContain('Citando a');
-    expect(c).toContain('GOREJIRλ (@GOREJ1RA)');
     expect(c).toContain('Halloween: The Game (2026)');
+  });
+
+  it('«Citando» lleva al post citado y la arroba al perfil', () => {
+    const c = doc({ quote: cita });
+    expect(c).toContain('<a href="https://x.com/GOREJ1RA/status/2000000000000000000">Citando</a>');
+    expect(c).toContain('<a href="https://x.com/GOREJ1RA">@GOREJ1RA</a>');
+  });
+
+  it('no deja un renglón vacío entre la cita y las estadísticas', () => {
+    // `<blockquote>` ya es un bloque: añadirle <br><br> dejaba un hueco feo.
+    expect(doc({ quote: cita })).toContain('</blockquote><b>');
   });
 
   it('va debajo del texto propio, como en X', () => {
@@ -324,8 +333,32 @@ describe('contexto de un post citado', () => {
 
   it('una cita sin texto deja sólo la cabecera', () => {
     const c = doc({ quote: { ...cita, text: '' } });
-    expect(c).toContain('Citando a');
+    expect(c).toContain('>Citando</a>');
     expect(c).toContain('</blockquote>');
+  });
+});
+
+describe('medios de un post citado', () => {
+  const cita = { name: 'Love Culture', screen_name: 'itsloveculture', text: 'mira esto' };
+
+  it('si el post no trae fotos propias, se enseñan las del citado', () => {
+    // Sin esto, un «mira esto» citando a otro se quedaba sin imagen.
+    const st = statusWith([], { quote: { ...cita, dims: REAL.makokoto } });
+    const plan = planLayout(st, 'auto');
+    expect(plan.kind).toBe('row');
+    expect(plan.kind === 'row' && plan.panels).toHaveLength(4);
+  });
+
+  it('lo propio manda siempre que exista', () => {
+    const st = statusWith(REAL.momote, { quote: { ...cita, dims: REAL.makokoto } });
+    const plan = planLayout(st, 'auto');
+    // Tres paneles son los suyos; los del citado son cuatro.
+    expect(plan.kind === 'row' && plan.panels).toHaveLength(3);
+  });
+
+  it('una cita sin medios no aporta nada', () => {
+    const st = statusWith([], { quote: cita });
+    expect(planLayout(st, 'auto').kind).toBe('none');
   });
 });
 

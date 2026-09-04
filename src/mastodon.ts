@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import type { FxStatus } from './fx.js';
-import { videoOf, type FxQuote } from './fx.js';
+import { mediaSource, videoOf, type FxQuote } from './fx.js';
 import { compact, escapeHtml, truncate } from './html.js';
 import type { Plan } from './layout.js';
 
@@ -99,8 +99,12 @@ const MAX_CITA = 200;
  * original de todos modos.
  */
 function citaHtml(quote: FxQuote): string {
-  const autor = `${escapeHtml(quote.author.name)} (@${escapeHtml(quote.author.screen_name)})`;
-  const cabecera = `<b>Citando a <a href="${escapeHtml(quote.url)}">${autor}</a></b>`;
+  // Dos enlaces distintos: «Citando» lleva al post citado y la arroba al perfil
+  // de quien lo escribió, que son los dos sitios a los que uno querría ir.
+  const perfil = `https://x.com/${encodeURIComponent(quote.author.screen_name)}`;
+  const cabecera =
+    `<b><a href="${escapeHtml(quote.url)}">Citando</a> a ${escapeHtml(quote.author.name)}` +
+    ` (<a href="${escapeHtml(perfil)}">@${escapeHtml(quote.author.screen_name)}</a>)</b>`;
   const texto = escapeHtml(truncate(quote.text.trim(), MAX_CITA)).replace(/\n/g, '<br>');
   return `<blockquote>${texto ? `${cabecera}<br>${texto}` : cabecera}</blockquote>`;
 }
@@ -121,21 +125,25 @@ function contentHtml(status: FxStatus): string {
   if (status.likes) stats.push(`❤️ ${compact(status.likes)}`);
   if (status.views) stats.push(`👁️ ${compact(status.views)}`);
 
-  const lineas: string[] = [];
-  if (text) lineas.push(text);
-  // La cita va debajo del texto propio, como en X.
-  if (status.quote) lineas.push(citaHtml(status.quote));
-
   /*
    * El enlace de descarga se pega al final de la línea de estadísticas en vez
    * de ir en su propio renglón: así no alarga el embed. Es un enlace y no un
    * adorno, porque el reproductor de Discord no trae botón de descarga.
    */
-  const video = videoOf(status);
+  const video = videoOf(mediaSource(status));
   const descarga = video ? `&ensp;<a href="${escapeHtml(video.url)}">⬇️</a>` : '';
-  if (stats.length || descarga) lineas.push(`<b>${stats.join('&ensp;')}${descarga}</b>`);
+  const linea = stats.length || descarga ? `<b>${stats.join('&ensp;')}${descarga}</b>` : '';
 
-  return lineas.join('<br><br>');
+  /*
+   * El montaje se hace a mano y no con un `join`, porque `<blockquote>` ya es
+   * un bloque: separarlo con `<br><br>` dejaba un renglón vacío colgando entre
+   * la cita y las estadísticas.
+   */
+  let html = text;
+  // La cita va debajo del texto propio, como en X.
+  if (status.quote) html += (html ? '<br><br>' : '') + citaHtml(status.quote);
+  if (linea) html += html && !status.quote ? `<br><br>${linea}` : linea;
+  return html;
 }
 
 /** El adjunto único: la tira cosida, la foto original, o el vídeo. */

@@ -87,8 +87,16 @@ La diferencia con otros servicios está en el campo `media_attachments` de ese d
 
 Si el post **cita a otro**, la cita va en el cuerpo como `<blockquote>`, que es lo que
 hace que Discord le pinte la barra lateral y se distinga del texto propio. Se recorta a
-200 caracteres: una cita larga estiraría el embed sin aportar nada, y el enlace lleva al
-original.
+200 caracteres: una cita larga estiraría el embed sin aportar nada. «Citando» enlaza al
+post citado y la arroba al perfil de quien lo escribió.
+
+Y si el post **no trae medios propios pero el citado sí**, se enseñan los del citado. Sin
+eso, un «mira esto» citando a otro se quedaba sin imagen. Lo propio manda siempre que
+exista.
+
+⚠️ **Nota**: los medios salen del área de medios del embed, debajo de la cita, y no dentro
+del recuadro de la cita. No es una decisión: Discord sólo pinta imágenes desde
+`media_attachments`, y el cuerpo no admite `<img>`.
 
 Al resto de clientes (Telegram, WhatsApp) se les sigue sirviendo OpenGraph normal.
 
