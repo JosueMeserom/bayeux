@@ -436,10 +436,15 @@ const HOST = 'bayeux.ultrak.dynu.net';   // tu subdominio
 const PARAMS = '';                       // p.ej. '?layout=row' si lo quieres siempre
 ```
 
-El botón **sólo sale donde sirve de algo**: en posts con dos o más fotos propias y sin
-vídeo. Un detalle que costó una versión: X pinta la barra de acciones **antes** que las
-fotos, así que un post con imágenes parece no tenerlas en la primera pasada. Por eso sólo
-se marca un post como visto cuando el botón se ha puesto de verdad, nunca al descartarlo. Un post de sólo texto, o uno que cita a otro con dibujos, no lo enseña, porque ahí
+El botón **sólo sale donde sirve de algo**: en posts con fotos propias y sin vídeo. Un
+post de sólo texto, o uno que cita a otro con dibujos, no lo enseña.
+
+Para saberlo se miran los enlaces `/status/<id>/photo/N`, no el contenedor
+`[data-testid="tweetPhoto"]`. El motivo está medido sobre una carga real: los enlaces
+aparecen **a la vez** que la barra de acciones, y el contenedor tarda 89ms más. Esperarlo
+hacía que el botón saliera tarde y, al aparecer, moviera toda la fila, porque los
+contadores de X son `flex: 1 1 0%` y se encogen para hacerle sitio. Comprobar que el id del
+enlace es el del post resuelve de paso lo de las citas, cuyas fotos llevan el id del citado. Un post de sólo texto, o uno que cita a otro con dibujos, no lo enseña, porque ahí
 no hay ninguna tira que coser. Las fotos de una cita se distinguen porque van dentro de un
 `div[role="link"]` y las del propio post no.
 

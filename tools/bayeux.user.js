@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.4
+// @version      1.0.5
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -134,15 +134,28 @@
   }
 
   /**
-   * Fotos del propio post, sin contar las de un post citado.
+   * ¿Lleva el post fotos propias?
    *
-   * Comprobado sobre el DOM real: las fotos de una cita están dentro de un
-   * `div[role="link"]` y las del post no. Sin este filtro, un post de sólo
-   * texto que cita a otro con dibujos sacaría botón para nada.
+   * Se mira por los enlaces `/status/<id>/photo/N`, que X pinta **a la vez** que
+   * la barra de acciones. Medido sobre una carga real: `[data-testid="tweetPhoto"]`
+   * tarda 89ms más, y esperarlo era lo que hacía que el botón saliera tarde y
+   * moviera toda la fila al aparecer (los contadores de X son `flex: 1 1 0%` y
+   * se encogen para hacerle sitio).
+   *
+   * Comprobar el id, además de ser lo correcto, resuelve gratis lo del post
+   * citado: sus fotos llevan el id del citado, no el de este.
    */
-  function fotosPropias(article) {
+  function tieneFotos(article, id) {
+    for (const a of article.querySelectorAll('a[href*="/photo/"]')) {
+      try {
+        if (new URL(a.href).pathname.includes(`/status/${id}/photo/`)) return true;
+      } catch {
+        /* href raro: se ignora */
+      }
+    }
+    // Respaldo por si X cambia esos enlaces: el contenedor de toda la vida.
     return [...article.querySelectorAll('[data-testid="tweetPhoto"]')]
-      .filter((f) => !f.closest('div[role="link"]'));
+      .some((f) => !f.closest('div[role="link"]'));
   }
 
   const tieneVideo = (article) =>
@@ -215,11 +228,11 @@
     const barra = barraDe(article);
     if (!barra) return; // aún sin pintar del todo; ya volverá el observador
 
-    // Sin dos fotos propias no hay tira que coser, así que el botón sobra.
-    if (fotosPropias(article).length < 2 || tieneVideo(article)) return;
-
     const datos = datosDe(article);
     if (!datos) return;
+
+    // Sin imágenes propias el enlace no aporta nada, así que el botón sobra.
+    if (tieneVideo(article) || !tieneFotos(article, datos.id)) return;
 
     /*
      * Sólo se marca cuando el botón se ha puesto de verdad, nunca al descartar.
