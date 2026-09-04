@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import type { FxStatus } from './fx.js';
-import { videoOf } from './fx.js';
-import { compact, escapeHtml } from './html.js';
+import { videoOf, type FxQuote } from './fx.js';
+import { compact, escapeHtml, truncate } from './html.js';
 import type { Plan } from './layout.js';
 
 /*
@@ -87,6 +87,24 @@ const attachment = (id: string, url: string, width: number, height: number): Att
   meta: { original: { width, height, size: `${width}x${height}`, aspect: width / height } },
 });
 
+/** Longitud a la que se corta el texto de un post citado. */
+const MAX_CITA = 200;
+
+/**
+ * El post citado, como cita de bloque.
+ *
+ * `<blockquote>` es lo que hace que Discord le pinte la barra lateral, que es
+ * justo lo que distingue el contexto del texto propio. Se corta el texto:
+ * una cita larga estiraría el embed sin aportar nada, y el enlace lleva al
+ * original de todos modos.
+ */
+function citaHtml(quote: FxQuote): string {
+  const autor = `${escapeHtml(quote.author.name)} (@${escapeHtml(quote.author.screen_name)})`;
+  const cabecera = `<b>Citando a <a href="${escapeHtml(quote.url)}">${autor}</a></b>`;
+  const texto = escapeHtml(truncate(quote.text.trim(), MAX_CITA)).replace(/\n/g, '<br>');
+  return `<blockquote>${texto ? `${cabecera}<br>${texto}` : cabecera}</blockquote>`;
+}
+
 /**
  * Cuerpo del post en HTML.
  *
@@ -105,13 +123,17 @@ function contentHtml(status: FxStatus): string {
 
   const lineas: string[] = [];
   if (text) lineas.push(text);
-  if (stats.length) lineas.push(`<b>${stats.join('&ensp;')}</b>`);
+  // La cita va debajo del texto propio, como en X.
+  if (status.quote) lineas.push(citaHtml(status.quote));
 
-  // Enlace de descarga del vídeo. El `content` admite enlaces (FxEmbed mete ahí
-  // los de responder, repostear y me gusta), y apunta al MP4 directo, que
-  // twimg sirve con content-type video/mp4 y con rangos.
+  /*
+   * El enlace de descarga se pega al final de la línea de estadísticas en vez
+   * de ir en su propio renglón: así no alarga el embed. Es un enlace y no un
+   * adorno, porque el reproductor de Discord no trae botón de descarga.
+   */
   const video = videoOf(status);
-  if (video) lineas.push(`<a href="${escapeHtml(video.url)}">⬇️ Descargar vídeo</a>`);
+  const descarga = video ? `&ensp;<a href="${escapeHtml(video.url)}">⬇️</a>` : '';
+  if (stats.length || descarga) lineas.push(`<b>${stats.join('&ensp;')}${descarga}</b>`);
 
   return lineas.join('<br><br>');
 }

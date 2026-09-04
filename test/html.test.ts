@@ -268,16 +268,64 @@ describe('posts con vídeo', () => {
     expect(media[0]!.type).toBe('gifv');
   });
 
-  it('el cuerpo lleva enlace de descarga', () => {
+  it('la descarga va pegada a las estadísticas, no en su propio renglón', () => {
     const doc = mastodonStatus(conVideo, plan, BASE);
-    expect(doc.content).toContain('⬇️ Descargar vídeo');
-    expect(doc.content).toContain('.mp4');
+    const c = String(doc.content);
+    expect(c).toContain('<a href="https://video.twimg.com');
+    expect(c).toContain('⬇️');
+    // Dentro del mismo <b> que las estadísticas: ni una línea más de alto.
+    expect(/<b>[^<]*(<[^>]+>[^<]*)*⬇️/.test(c.replace(/&ensp;/g, ''))).toBe(true);
   });
 
   it('sin vídeo no hay enlace de descarga', () => {
     const fotos = statusWith(REAL.makokoto);
     const doc = mastodonStatus(fotos, planLayout(fotos, 'auto'), BASE);
     expect(doc.content).not.toContain('Descargar');
+  });
+});
+
+describe('contexto de un post citado', () => {
+  const cita = { name: 'GOREJIRλ', screen_name: 'GOREJ1RA', text: 'Halloween: The Game (2026)' };
+
+  const doc = (extra: Parameters<typeof statusWith>[1]) => {
+    const st = statusWith(REAL.makokoto, extra);
+    return String(mastodonStatus(st, planLayout(st, 'auto'), BASE).content);
+  };
+
+  it('sale como cita de bloque, que es lo que le pinta la barra lateral', () => {
+    const c = doc({ quote: cita });
+    expect(c).toContain('<blockquote>');
+    expect(c).toContain('Citando a');
+    expect(c).toContain('GOREJIRλ (@GOREJ1RA)');
+    expect(c).toContain('Halloween: The Game (2026)');
+  });
+
+  it('va debajo del texto propio, como en X', () => {
+    const c = doc({ quote: cita });
+    expect(c.indexOf('texto del post')).toBeLessThan(c.indexOf('<blockquote>'));
+  });
+
+  it('sin cita no se añade nada', () => {
+    expect(doc({})).not.toContain('blockquote');
+  });
+
+  it('recorta una cita larga en vez de estirar el embed', () => {
+    const largo = 'a'.repeat(500);
+    const c = doc({ quote: { ...cita, text: largo } });
+    expect(c).toContain('…');
+    expect(c.match(/a+/)![0].length).toBeLessThan(210);
+  });
+
+  it('escapa el nombre y el texto del citado', () => {
+    const c = doc({ quote: { name: '<script>x</script>', screen_name: 'malo', text: '<img>' } });
+    expect(c).not.toContain('<script>');
+    expect(c).not.toContain('<img>');
+  });
+
+  it('una cita sin texto deja sólo la cabecera', () => {
+    const c = doc({ quote: { ...cita, text: '' } });
+    expect(c).toContain('Citando a');
+    expect(c).toContain('</blockquote>');
   });
 });
 

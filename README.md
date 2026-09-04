@@ -85,6 +85,11 @@ Discord tiene **soporte nativo de Mastodon**, así que al ver esa línea se desc
 
 La diferencia con otros servicios está en el campo `media_attachments` de ese documento. Ellos declaran **las fotos sueltas**, y por eso Discord las monta en su cuadrícula. Bayeux declara **un solo adjunto**, la tira ya cosida. Mismo embed bonito, sin que nadie despiece el dibujo.
 
+Si el post **cita a otro**, la cita va en el cuerpo como `<blockquote>`, que es lo que
+hace que Discord le pinte la barra lateral y se distinga del texto propio. Se recorta a
+200 caracteres: una cita larga estiraría el embed sin aportar nada, y el enlace lleva al
+original.
+
 Al resto de clientes (Telegram, WhatsApp) se les sigue sirviendo OpenGraph normal.
 
 ⚠️ **Nota**: por este camino **no hay query string que valga**. Discord toma el id del
@@ -346,7 +351,9 @@ lo reproduce. Comprobado que `video.twimg.com` lo sirve con `content-type: video
 - Por el documento Mastodon, que es como lo recibe Discord: un `media_attachments` de
   tipo `video`, o **`gifv`** si es un GIF, que es lo que hace que se reproduzca en bucle y
   sin sonido.
-- El cuerpo del embed lleva además un **enlace de descarga** al MP4.
+- El cuerpo del embed lleva además un **enlace de descarga** al MP4, un `⬇️` pegado al
+  final de la línea de estadísticas para no añadir ni un renglón. Hace falta porque el
+  reproductor de Discord no trae botón de descarga propio.
 
 Si un post trajera vídeo y fotos a la vez (X no lo permite hoy), manda el vídeo.
 

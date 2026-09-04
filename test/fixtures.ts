@@ -10,7 +10,12 @@ const photo = (width: number, height: number, i = 0): FxPhoto => ({
 
 export function statusWith(
   dims: [number, number][],
-  extra: { videos?: number; gifPhotos?: number; gif?: boolean } = {},
+  extra: {
+    videos?: number;
+    gifPhotos?: number;
+    gif?: boolean;
+    quote?: { name: string; screen_name: string; text: string };
+  } = {},
 ): FxStatus {
   const photos = dims.map(([w, h], i) => photo(w, h, i));
   for (let i = 0; i < (extra.gifPhotos ?? 0); i++) {
@@ -31,6 +36,16 @@ export function statusWith(
       screen_name: 'autor',
       avatar_url: 'https://pbs.twimg.com/profile_images/1/a_200x200.jpg',
     },
+    ...(extra.quote
+      ? {
+          quote: {
+            id: '2000000000000000000',
+            url: `https://x.com/${extra.quote.screen_name}/status/2000000000000000000`,
+            text: extra.quote.text,
+            author: { name: extra.quote.name, screen_name: extra.quote.screen_name },
+          },
+        }
+      : {}),
     media: {
       photos,
       // Forma tomada de una respuesta real: MP4 directo, con miniatura.

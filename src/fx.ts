@@ -33,6 +33,14 @@ export interface FxVideo {
   thumbnail_url?: string;
 }
 
+/** Sólo lo que se usa de un post citado; el objeto real es un status entero. */
+export interface FxQuote {
+  id: string;
+  url: string;
+  text: string;
+  author: { name: string; screen_name: string };
+}
+
 export interface FxStatus {
   id: string;
   url: string;
@@ -45,6 +53,7 @@ export interface FxStatus {
   likes?: number;
   views?: number;
   author: { name: string; screen_name: string; avatar_url?: string };
+  quote?: FxQuote;
   media?: {
     all?: unknown[];
     photos?: FxPhoto[];
