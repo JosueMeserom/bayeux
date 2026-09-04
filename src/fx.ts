@@ -24,9 +24,13 @@ export interface FxPhoto {
 
 export interface FxVideo {
   type: 'video' | 'gif';
+  /** MP4 directo. Comprobado: `content-type: video/mp4` y `accept-ranges`. */
   url: string;
   width: number;
   height: number;
+  duration?: number;
+  format?: string;
+  thumbnail_url?: string;
 }
 
 export interface FxStatus {
@@ -73,6 +77,11 @@ export function photosOf(status: FxStatus): FxPhoto[] {
 /** Un vídeo o GIF en el post descarta la tira: no hay nada que coser. */
 export function hasMotion(status: FxStatus): boolean {
   return (status.media?.videos ?? []).length > 0;
+}
+
+/** El vídeo del post, si lo hay. X permite como mucho uno por post. */
+export function videoOf(status: FxStatus): FxVideo | undefined {
+  return (status.media?.videos ?? []).find((v) => v.url && v.width > 0 && v.height > 0);
 }
 
 export async function fetchStatus(id: string): Promise<FxStatus> {

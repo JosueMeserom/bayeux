@@ -221,6 +221,66 @@ describe('documento estilo Mastodon (el camino de Discord)', () => {
   });
 });
 
+describe('posts con vídeo', () => {
+  const conVideo = statusWith([], { videos: 1 });
+  const plan = planLayout(conVideo, 'auto');
+
+  it('el vídeo manda sobre cualquier layout forzado', () => {
+    // No hay fotos que coser: lo útil es que el cliente reproduzca el MP4.
+    expect(planLayout(conVideo, 'row').kind).toBe('video');
+    expect(planLayout(conVideo, 'grid').kind).toBe('video');
+  });
+
+  it('declara el MP4 y la miniatura por OpenGraph', () => {
+    const html = embedHtml(conVideo, plan, BASE);
+    expect(metaOf(html, 'og:video')).toContain('.mp4');
+    expect(metaOf(html, 'og:video:type')).toBe('video/mp4');
+    expect(metaOf(html, 'og:video:width')).toBe('720');
+    expect(metaOf(html, 'twitter:card')).toBe('player');
+    expect(metaOf(html, 'og:type')).toBe('video.other');
+    // La imagen es la miniatura, no la tira: aquí no se compone nada.
+    expect(metaOf(html, 'og:image')).toContain('amplify_video_thumb');
+  });
+
+  it('a Discord se le retiran también los medios de OpenGraph', () => {
+    const html = embedHtml(conVideo, plan, BASE, true);
+    expect(metaOf(html, 'og:video')).toBeUndefined();
+    expect(html).toContain('activity+json');
+  });
+
+  it('el documento Mastodon lleva el vídeo, que es como Discord lo reproduce', () => {
+    const media = mastodonStatus(conVideo, plan, BASE).media_attachments as {
+      type: string;
+      url: string;
+      preview_url: string;
+    }[];
+    expect(media).toHaveLength(1);
+    expect(media[0]!.type).toBe('video');
+    expect(media[0]!.url).toContain('.mp4');
+    expect(media[0]!.preview_url).toContain('amplify_video_thumb');
+  });
+
+  it('un GIF se declara como gifv, que se reproduce en bucle y sin sonido', () => {
+    const gif = statusWith([], { videos: 1, gif: true });
+    const media = mastodonStatus(gif, planLayout(gif, 'auto'), BASE).media_attachments as {
+      type: string;
+    }[];
+    expect(media[0]!.type).toBe('gifv');
+  });
+
+  it('el cuerpo lleva enlace de descarga', () => {
+    const doc = mastodonStatus(conVideo, plan, BASE);
+    expect(doc.content).toContain('⬇️ Descargar vídeo');
+    expect(doc.content).toContain('.mp4');
+  });
+
+  it('sin vídeo no hay enlace de descarga', () => {
+    const fotos = statusWith(REAL.makokoto);
+    const doc = mastodonStatus(fotos, planLayout(fotos, 'auto'), BASE);
+    expect(doc.content).not.toContain('Descargar');
+  });
+});
+
 describe('los parámetros viajan dentro del id del status', () => {
   // Discord construye la URL de /api/v1/statuses a partir del id y se deja por
   // el camino cualquier query string. Si el layout y el hueco no van dentro del

@@ -10,7 +10,7 @@ const photo = (width: number, height: number, i = 0): FxPhoto => ({
 
 export function statusWith(
   dims: [number, number][],
-  extra: { videos?: number; gifPhotos?: number } = {},
+  extra: { videos?: number; gifPhotos?: number; gif?: boolean } = {},
 ): FxStatus {
   const photos = dims.map(([w, h], i) => photo(w, h, i));
   for (let i = 0; i < (extra.gifPhotos ?? 0); i++) {
@@ -33,11 +33,15 @@ export function statusWith(
     },
     media: {
       photos,
+      // Forma tomada de una respuesta real: MP4 directo, con miniatura.
       videos: Array.from({ length: extra.videos ?? 0 }, () => ({
-        type: 'video' as const,
-        url: 'https://video.twimg.com/fake.mp4',
-        width: 1280,
-        height: 720,
+        type: (extra.gif ? 'gif' : 'video') as 'video' | 'gif',
+        url: 'https://video.twimg.com/amplify_video/1/vid/avc1/720x740/x.mp4?tag=29',
+        width: 720,
+        height: 740,
+        duration: 44.21,
+        format: 'video/mp4',
+        thumbnail_url: 'https://pbs.twimg.com/amplify_video_thumb/1/img/y.jpg',
       })),
     },
   };

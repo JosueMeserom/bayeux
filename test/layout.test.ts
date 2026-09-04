@@ -13,7 +13,10 @@ describe('decisión de layout en auto', () => {
     ['4 fotos con 1px de diferencia de altura', [[400, 1200], [400, 1199], [400, 1200], [400, 1200]], {}, 'row'],
     ['alturas dispares (900 vs 600)', [[500, 900], [500, 600]], {}, 'grid'],
     ['alturas al 5%, fuera de la tolerancia del 2%', [[400, 1200], [400, 1140]], {}, 'grid'],
-    ['3 fotos iguales con un vídeo mezclado', REAL.momote, { videos: 1 }, 'grid'],
+    // X no deja mezclar vídeo y fotos, pero si llegara, manda el vídeo: es lo
+    // único que el cliente puede reproducir.
+    ['3 fotos iguales con un vídeo mezclado', REAL.momote, { videos: 1 }, 'video'],
+    ['solo vídeo', [], { videos: 1 }, 'video'],
     ['una sola foto', [[800, 600]], {}, 'passthrough'],
     ['sin fotos', [], {}, 'none'],
     ['5 fotos (por encima del máximo, se recorta a 4)', [[400, 1200], [400, 1200], [400, 1200], [400, 1200], [400, 1200]], {}, 'row'],

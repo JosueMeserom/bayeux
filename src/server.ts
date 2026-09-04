@@ -205,7 +205,9 @@ export async function build() {
       if (!status) return reply.code(404).send({ error: 'post no encontrado' });
 
       const plan = planLayout(status, resolveMode(req.query, req.headers), resolveOpts(req.query));
-      if (plan.kind === 'none') return reply.code(404).send({ error: 'el post no tiene fotos' });
+      if (plan.kind === 'none' || plan.kind === 'video') {
+        return reply.code(404).send({ error: 'el post no tiene fotos que coser' });
+      }
       // Una sola foto: no hay nada que componer, se manda al original de pbs.twimg.com.
       if (plan.kind === 'passthrough') return reply.redirect(plan.url, 302);
 

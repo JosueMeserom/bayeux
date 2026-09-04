@@ -70,6 +70,8 @@ export function imageUrl(id: string, plan: Plan, baseUrl: string): string | unde
   if (plan.kind === 'none') return undefined;
   // Con una sola foto no se compone nada: se enlaza pbs.twimg.com tal cual.
   if (plan.kind === 'passthrough') return plan.url;
+  // En un vídeo lo que se enseña de imagen es su miniatura; el MP4 va aparte.
+  if (plan.kind === 'video') return plan.thumbnail;
   // El layout ya resuelto va fijado en la URL, para que la imagen servida sea
   // exactamente la que declaran og:image:width/height aunque cambie la heurística.
   // Layout y hueco van fijados en la URL: así la imagen servida es exactamente
@@ -121,6 +123,10 @@ export function embedHtml(
   const author = authorLine(status);
   const original = status.url;
 
+  // A Discord se le retiran los medios por OpenGraph igual que el og:image: ya
+  // los recibe, mejor, por el documento Mastodon.
+  const video = plan.kind === 'video' && !forDiscord ? plan.url : undefined;
+
   // Orden que pinta Discord, de arriba abajo: autor (oEmbed) → título → descripción.
   const text = status.text.trim() ? truncate(status.text, 250) : '';
   const stats = statsLine(status);
@@ -139,7 +145,7 @@ export function embedHtml(
       ['og:site_name', config.siteName],
       // Apunta al post real: es lo que hace que el embed de Discord sea clicable al original.
       ['og:url', original],
-      ['og:type', 'article'],
+      ['og:type', plan.kind === 'video' ? 'video.other' : 'article'],
       ['og:title', text || author],
       ['og:description', stats],
       // Da la fecha del post al pie del embed.
@@ -147,8 +153,16 @@ export function embedHtml(
       ['og:image', forDiscord ? undefined : image],
       ['og:image:width', plan.kind === 'none' || forDiscord ? undefined : plan.width],
       ['og:image:height', plan.kind === 'none' || forDiscord ? undefined : plan.height],
-      // summary_large_image es lo que hace que Discord use imagen grande y no miniatura.
-      ['twitter:card', image ? 'summary_large_image' : 'summary'],
+      // El MP4 va directo: comprobado que twimg lo sirve con content-type
+      // video/mp4 y con rangos, así que no hace falta pasarlo por ningún proxy.
+      ['og:video', video],
+      ['og:video:secure_url', video],
+      ['og:video:type', video ? 'video/mp4' : undefined],
+      ['og:video:width', plan.kind === 'video' && video ? plan.width : undefined],
+      ['og:video:height', plan.kind === 'video' && video ? plan.height : undefined],
+      // `player` para vídeo; summary_large_image es lo que hace que Discord use
+      // imagen grande y no miniatura.
+      ['twitter:card', plan.kind === 'video' ? 'player' : image ? 'summary_large_image' : 'summary'],
       ['twitter:title', text || author],
       ['twitter:description', stats],
       ['twitter:image', image],

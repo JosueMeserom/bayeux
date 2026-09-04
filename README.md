@@ -335,6 +335,21 @@ Todas tienen un valor por defecto razonable. El fichero completo y comentado est
 | `FETCH_TIMEOUT_MS` | `6000` | Timeout de cada petición saliente |
 | `OUTBOUND_USER_AGENT` | `Bayeux/0.1 (...)` | UA con el que sale Bayeux |
 
+### Vídeos y GIF
+
+Un post con vídeo no pasa por la composición: **se declara el MP4 original** y el cliente
+lo reproduce. Comprobado que `video.twimg.com` lo sirve con `content-type: video/mp4`,
+`accept-ranges` y CORS abierto, así que no hace falta proxy ninguno.
+
+- Por OpenGraph: `og:video`, `og:video:type`, sus medidas, `og:type: video.other` y
+  `twitter:card: player`. El `og:image` pasa a ser la miniatura.
+- Por el documento Mastodon, que es como lo recibe Discord: un `media_attachments` de
+  tipo `video`, o **`gifv`** si es un GIF, que es lo que hace que se reproduzca en bucle y
+  sin sonido.
+- El cuerpo del embed lleva además un **enlace de descarga** al MP4.
+
+Si un post trajera vídeo y fotos a la vez (X no lo permite hoy), manda el vídeo.
+
 ### Composición
 
 | Variable | Por defecto | Qué hace |
@@ -413,7 +428,9 @@ Sin vender humo:
 - **La heurística no lee las imágenes**, solo sus dimensiones.
 - **Máximo 4 fotos**, que de todas formas es el tope de X.
 - **Depende de la API pública de FxTwitter.** Si se cae o cambia, Bayeux se cae con ella. No hay scraping propio de respaldo.
-- **Sin soporte de vídeo ni GIF.** Un post con vídeo cae a cuadrícula o a imagen única.
+- **Los vídeos no se cosen ni se recomprimen.** Se declara el MP4 original de X para que
+  el cliente lo reproduzca, con su miniatura de póster. No hay tira porque no hay nada que
+  coser.
 - **Los posts protegidos o borrados** devuelven el embed de error, no el contenido.
 
 ---

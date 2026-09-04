@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { hasMotion, photosOf, type FxPhoto, type FxStatus } from './fx.js';
+import { hasMotion, photosOf, videoOf, type FxPhoto, type FxStatus } from './fx.js';
 
 export type LayoutMode = 'row' | 'grid' | 'auto';
 
@@ -16,6 +16,12 @@ export type Plan =
   | { kind: 'none' }
   /** Una sola foto: se enlaza pbs.twimg.com directamente, sin componer nada. */
   | { kind: 'passthrough'; url: string; width: number; height: number }
+  /**
+   * Vídeo o GIF: tampoco se compone nada, se declara el MP4 para que el cliente
+   * lo reproduzca. `gif` distingue los GIF, que en Mastodon son `gifv` y los
+   * clientes reproducen en bucle y sin sonido.
+   */
+  | { kind: 'video'; url: string; width: number; height: number; gif: boolean; thumbnail?: string }
   /** `gap` es el hueco ya resuelto en píxeles: viaja en la URL de la imagen. */
   | { kind: 'row' | 'grid'; width: number; height: number; gap: number; panels: Panel[] };
 
@@ -190,6 +196,20 @@ function planGrid(photos: FxPhoto[], o: LayoutOpts): Plan {
 }
 
 export function planLayout(status: FxStatus, requested: LayoutMode = 'auto', o = defaultOpts()): Plan {
+  // El vídeo manda sobre todo lo demás, incluido un ?layout= forzado: no hay
+  // fotos que coser y lo que el cliente tiene que recibir es el MP4.
+  const video = videoOf(status);
+  if (video) {
+    const plan: Plan = {
+      kind: 'video',
+      url: video.url,
+      width: video.width,
+      height: video.height,
+      gif: video.type === 'gif',
+    };
+    return video.thumbnail_url ? { ...plan, thumbnail: video.thumbnail_url } : plan;
+  }
+
   const photos = photosOf(status).slice(0, o.maxPhotos);
 
   if (photos.length === 0) return { kind: 'none' };

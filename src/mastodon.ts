@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import type { FxStatus } from './fx.js';
+import { videoOf } from './fx.js';
 import { compact, escapeHtml } from './html.js';
 import type { Plan } from './layout.js';
 
@@ -63,7 +64,8 @@ export function decodeStatusId(token: string): StatusIdDecodificado | null {
 
 interface Attachment {
   id: string;
-  type: 'image';
+  /** `gifv` es lo que hace que un GIF se reproduzca en bucle y sin sonido. */
+  type: 'image' | 'video' | 'gifv';
   url: string;
   preview_url: string;
   remote_url: null;
@@ -101,16 +103,35 @@ function contentHtml(status: FxStatus): string {
   if (status.likes) stats.push(`❤️ ${compact(status.likes)}`);
   if (status.views) stats.push(`👁️ ${compact(status.views)}`);
 
-  if (stats.length === 0) return text;
-  const line = `<b>${stats.join('&ensp;')}</b>`;
-  return text ? `${text}<br><br>${line}` : line;
+  const lineas: string[] = [];
+  if (text) lineas.push(text);
+  if (stats.length) lineas.push(`<b>${stats.join('&ensp;')}</b>`);
+
+  // Enlace de descarga del vídeo. El `content` admite enlaces (FxEmbed mete ahí
+  // los de responder, repostear y me gusta), y apunta al MP4 directo, que
+  // twimg sirve con content-type video/mp4 y con rangos.
+  const video = videoOf(status);
+  if (video) lineas.push(`<a href="${escapeHtml(video.url)}">⬇️ Descargar vídeo</a>`);
+
+  return lineas.join('<br><br>');
 }
 
-/** El adjunto único: la tira cosida, o la foto original si no hubo que coser. */
+/** El adjunto único: la tira cosida, la foto original, o el vídeo. */
 function attachmentsFor(status: FxStatus, plan: Plan, baseUrl: string, imageUrl?: string): Attachment[] {
   if (plan.kind === 'none') return [];
   if (plan.kind === 'passthrough') {
     return [attachment(`${status.id}-0`, plan.url, plan.width, plan.height)];
+  }
+  if (plan.kind === 'video') {
+    // Este es el camino por el que Discord reproduce el vídeo de verdad, en vez
+    // de enseñar la miniatura quieta. El `preview_url` es el póster.
+    return [
+      {
+        ...attachment(`${status.id}-video`, plan.url, plan.width, plan.height),
+        type: plan.gif ? 'gifv' : 'video',
+        preview_url: plan.thumbnail ?? plan.url,
+      },
+    ];
   }
   return [attachment(`${status.id}-strip`, imageUrl ?? baseUrl, plan.width, plan.height)];
 }
