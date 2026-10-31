@@ -508,6 +508,23 @@ extensiones, y deja que `justify-content: space-between` haga el reparto. Medido
 huecos pasan a ser idénticos (38,1px con siete iconos, 47,6 con seis) sin cambiar el ancho
 total de la barra.
 
+Eso sólo vale si sobra sitio. En columnas estrechas, como las respuestas a la derecha del
+visor de fotos, los iconos no caben ni pegados, y repartir hace que todo lo que falta salga
+de los contadores, cuyos números acaban montados. Por eso, si al repartir los hijos de una
+barra quedan pegados (sin hueco entre ellos), esa barra se marca con
+`data-bayeux-apretada` y vuelve al reparto de X.
+
+Por lo mismo, el botón ocupa lo que su icono y no lo que el círculo del hover, que se sale
+de la caja por los dos lados. Así lo hace X con Compartir y Marcador.
+
+Ni así caben en la columna de respuestas del visor, que mide 254px: con nuestro botón y el
+de Media Harvest a cada contador le quedan 38px, y un «1 mil» pide unos 55. Así que en las
+barras apretadas **los botones añadidos pasan al menú de Compartir**: el nuestro y los de
+otras extensiones que vayan detrás de Compartir. Al abrir ese menú aparecen al final como
+«Copiar enlace de Bayeux» y con el nombre de cada extensión, y al pulsar la suya se pulsa
+por debajo su botón escondido. La barra queda exactamente como la diseñó X. Las opciones
+son clones de las de X, así que siguen su tema sin estilos propios.
+
 ⚠️ **Nota**: esto sí pisa estilos de X, al contrario que el resto del script. El `:has()`
 lo acota a las barras donde hemos puesto botón, y al ser CSS no hay nada que React pueda
 deshacer en un re-render. Si no te convence, `EQUIDISTANTE = false` arriba del fichero

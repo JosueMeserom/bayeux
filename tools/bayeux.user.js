@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bayeux: copiar enlace de la tira
 // @namespace    https://github.com/JosueMeserom/bayeux
-// @version      1.0.7
+// @version      1.1.0
 // @description  Añade un botón a cada post de X para copiar su enlace de Bayeux
 // @author       JosueMeserom
 // @match        https://x.com/*
@@ -59,17 +59,22 @@
    * `align-items: stretch` pero con alturas muy distintas (34,8 en la línea de
    * tiempo, 48 en la página de un post). Un alto fijo no se estira y el icono
    * acababa 6px por encima de los demás.
+   *
+   * La caja mide lo que el icono, no lo que el círculo, que se sale por los
+   * dos lados. Así lo hace X en Compartir y Marcador (18,8 de caja, medido).
+   * Con la caja del círculo eran 16px de más, que en la columna de respuestas
+   * del visor de fotos (254px) se comían los contadores.
    */
   const css = document.createElement('style');
   css.textContent = `
     .bayeux-btn {
       display: flex; align-items: center; justify-content: center;
-      align-self: stretch; flex: 0 0 auto;
+      align-self: stretch; flex: 0 0 auto; width: var(--bayeux-icono, 18.75px);
       margin: 0; border: 0; padding: 0; background: none;
       cursor: pointer; color: inherit;
     }
     .bayeux-ico {
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center; flex: none;
       width: var(--bayeux-circulo, 34.75px); height: var(--bayeux-circulo, 34.75px);
       border-radius: 9999px; opacity: .6;
       transition: opacity .12s, background-color .12s, color .12s;
@@ -94,15 +99,34 @@
    *    crean el bloque apretado del final.
    * Se deja `flex-shrink: 1` para que en una ventana estrecha encojan en vez
    * de desbordar.
+   *
+   * Sólo vale si sobra sitio que repartir. En columnas estrechas (las
+   * respuestas a la derecha del visor de fotos) no caben ni pegados, y como X
+   * pone `min-width: 0` a los contadores, son ellos los que encogen por debajo
+   * de su contenido y los números se montan. Esas barras se marcan con
+   * APRETADA (ver `vigilarSitio`) y vuelven al reparto de X.
+   *
+   * Ni así caben: en los 254px del visor, con nuestro botón y el de Media
+   * Harvest a cada contador le quedan 38px, y un «1 mil» pide unos 55. Por eso
+   * en esas barras los botones añadidos (el nuestro y los de otras
+   * extensiones, marcados con AJENO) se esconden y pasan al menú de Compartir
+   * (ver `ampliarMenu`). La barra queda exactamente como la diseñó X.
    */
+  const APRETADA = 'data-bayeux-apretada';
+  const AL_MENU = 'data-bayeux-al-menu';
+  const AJENO = 'data-bayeux-ajeno';
   if (EQUIDISTANTE) {
     const reparto = document.createElement('style');
     reparto.textContent = `
-      div[role="group"]:has(> .bayeux-btn) > * {
+      div[role="group"]:has(> .bayeux-btn):not([${APRETADA}]) > * {
         flex: 0 1 auto !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
       }
+      div[role="group"][${AL_MENU}] > .bayeux-btn,
+      div[role="group"][${AL_MENU}] > [${AJENO}] { display: none !important; }
+      /* Las opciones clonadas no traen el hover de X, que lo pone React. */
+      .bayeux-item:hover { background-color: rgba(128,128,128,.12); }
     `;
     document.head.appendChild(reparto);
   }
@@ -236,8 +260,10 @@
     }
   }
 
+  const enlace = (handle, id) => `https://${HOST}/${handle}/status/${id}${PARAMS}`;
+
   function crearBoton(handle, id, icono) {
-    const url = `https://${HOST}/${handle}/status/${id}${PARAMS}`;
+    const url = enlace(handle, id);
 
     const b = document.createElement('button');
     b.className = 'bayeux-btn';
@@ -306,11 +332,143 @@
     barra.appendChild(b);
   }
 
+  /**
+   * Devuelve al reparto de X las barras donde el equidistante no cabe.
+   *
+   * La señal es que los hijos queden pegados. Con `space-between`, si sobra
+   * sitio queda hueco entre ellos; si falta, encogen y el hueco desaparece
+   * (queda el `gap` propio de la barra, si lo tiene). No se mira si el
+   * contenido desborda: según cómo monte X el contador, encoge el icono en vez
+   * del texto y no desborda nada, pero sigue aplastado.
+   * La marca no se quita nunca: en el reparto de X los contadores también van
+   * pegados, y medir ahí haría oscilar entre los dos modos. Se lee todo antes
+   * de escribir para no forzar un recálculo de maqueta por barra.
+   * ponytail: sólo se mira al cambiar el DOM; estrechar la ventana sin hacer
+   * scroll no lo detecta. Un ResizeObserver por barra si llega a molestar.
+   */
+  function vigilarSitio() {
+    if (!EQUIDISTANTE) return;
+    const sinSitio = [...document.querySelectorAll(`div[role="group"]:has(> .bayeux-btn):not([${APRETADA}])`)]
+      .filter((g) => {
+        const propio = parseFloat(getComputedStyle(g).columnGap) || 0;
+        // Por posición en pantalla, no en el DOM: Media Harvest va antes que
+        // nosotros en el DOM pero se pinta la última con `order`, y en orden
+        // del DOM salía un hueco negativo que marcaba todas las barras.
+        const cajas = [...g.children]
+          .map((c) => c.getBoundingClientRect())
+          .filter((c) => c.width > 0)
+          .sort((a, b) => a.left - b.left);
+        return cajas.some((c, i) => i > 0 && c.left - cajas[i - 1].right < propio + 2);
+      });
+    for (const g of sinSitio) {
+      g.setAttribute(APRETADA, '');
+      // Sin Compartir no hay menú al que mandarlos, y se quedan en la barra.
+      if (compartirDe(g)) g.setAttribute(AL_MENU, '');
+    }
+    // Cada pasada, porque otra extensión puede poner su botón después que
+    // nosotros.
+    for (const g of document.querySelectorAll(`div[role="group"][${AL_MENU}]`)) {
+      for (const c of ajenosDe(g)) c.setAttribute(AJENO, '');
+    }
+  }
+
+  /** Compartir es el único botón de X sin ningún `data-testid` dentro (medido). */
+  const compartirDe = (barra) =>
+    [...barra.children].find((c) => !c.classList.contains('bayeux-btn') && !c.querySelector('[data-testid]'));
+
+  /** Lo que otras extensiones añaden detrás de Compartir, sin contar el nuestro. */
+  function ajenosDe(barra) {
+    const hijos = [...barra.children];
+    const i = hijos.indexOf(compartirDe(barra));
+    return i < 0 ? [] : hijos.slice(i + 1).filter((c) => !c.classList.contains('bayeux-btn'));
+  }
+
+  /*
+   * De qué barra se abrió el menú de Compartir. El menú se pinta en una capa
+   * aparte, fuera del post, y ni lleva rastro de quién lo abrió ni el botón se
+   * marca con `aria-expanded` (medido), así que se anota al pulsar.
+   * ponytail: sólo con ratón o dedo; abrirlo con teclado no lo amplía.
+   */
+  let origen = null;
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const barra = e.target.closest?.(`div[role="group"][${AL_MENU}]`);
+      origen = barra && compartirDe(barra)?.contains(e.target) ? { barra, t: Date.now() } : null;
+    },
+    true,
+  );
+
+  /**
+   * Añade al menú de Compartir lo que se escondió de una barra apretada.
+   *
+   * Las opciones son clones de una de X, así que salen con su tipografía, su
+   * alto y el color del tema sin estilos propios. Sólo se cambian el texto y
+   * el icono.
+   */
+  function ampliarMenu() {
+    if (!origen || Date.now() - origen.t > 2000) return;
+    const menu = document.querySelector('[role="menu"]');
+    const opciones = menu ? [...menu.querySelectorAll('[role="menuitem"]')] : [];
+    if (!opciones.length || menu.hasAttribute(MARCA)) return;
+    const { barra } = origen;
+    origen = null;
+    menu.setAttribute(MARCA, '1');
+
+    const datos = datosDe(barra.closest('article'));
+    const cerrar = () =>
+      menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+
+    let ultima = opciones[opciones.length - 1];
+    const anadir = (texto, icono, accion) => {
+      const op = ultima.cloneNode(true);
+      op.classList.add('bayeux-item');
+      op.querySelector('span').textContent = texto;
+      const viejo = op.querySelector('svg');
+      if (viejo && icono) viejo.replaceWith(icono);
+      op.addEventListener('click', (e) => {
+        // Sin esto el clic llega a React, que no conoce esta opción.
+        e.preventDefault();
+        e.stopPropagation();
+        accion();
+        cerrar();
+      });
+      ultima.after(op);
+      ultima = op;
+    };
+
+    if (datos) {
+      // Nuestro icono con las clases del de X: mismo tamaño y mismo color.
+      const t = document.createElement('template');
+      t.innerHTML = ICONO_TIRA;
+      const svg = t.content.firstChild;
+      svg.setAttribute('class', opciones[0].querySelector('svg')?.getAttribute('class') ?? '');
+      // Y por si acaso, tamaño y color explícitos: no depender de qué hagan esas clases.
+      svg.style.cssText = 'width:1.25em;height:1.25em;fill:currentColor';
+      anadir('Copiar enlace de Bayeux', svg, () => copiar(enlace(datos.handle, datos.id)));
+    }
+
+    for (const ajeno of ajenosDe(barra)) {
+      // Su icono tal cual, con sus clases: pueden ser de trazo y no de relleno.
+      const svg = ajeno.querySelector('svg')?.cloneNode(true);
+      if (svg) svg.style.cssText += ';width:1.25em;height:1.25em';
+      const nombre =
+        ajeno.querySelector('[aria-label]')?.getAttribute('aria-label') ||
+        ajeno.querySelector('[title]')?.getAttribute('title') ||
+        'Extensión';
+      anadir(nombre, svg, () => (ajeno.querySelector('button, [role="button"]') ?? ajeno).click());
+    }
+  }
+
   function barrer() {
     for (const a of document.querySelectorAll('article:not([' + MARCA + '])')) {
       // Cinturón por si el atributo se pierde en un re-render de X.
       if (!a.querySelector('.bayeux-btn')) procesar(a);
     }
+    // También en barras ya procesadas: los números de X llegan después que el
+    // botón, y hasta entonces todo parece caber.
+    vigilarSitio();
+    ampliarMenu();
   }
 
   /*
