@@ -54,7 +54,10 @@ export function statusWith(
       // Forma tomada de una respuesta real: MP4 directo, con miniatura.
       videos: Array.from({ length: extra.videos ?? 0 }, () => ({
         type: (extra.gif ? 'gif' : 'video') as 'video' | 'gif',
-        url: 'https://video.twimg.com/amplify_video/1/vid/avc1/720x740/x.mp4?tag=29',
+        // La del GIF es la de un post real (2121208912460333471).
+        url: extra.gif
+          ? 'https://video.twimg.com/tweet_video/HXAMQ3XW8AAE9Yn.mp4'
+          : 'https://video.twimg.com/amplify_video/1/vid/avc1/720x740/x.mp4?tag=29',
         width: 720,
         height: 740,
         duration: 44.21,

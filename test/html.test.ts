@@ -260,12 +260,14 @@ describe('posts con vídeo', () => {
     expect(media[0]!.preview_url).toContain('amplify_video_thumb');
   });
 
-  it('un GIF se declara como gifv, que se reproduce en bucle y sin sonido', () => {
+  it('un GIF va como imagen animada: Discord pinta gifv como un vídeo con controles', () => {
     const gif = statusWith([], { videos: 1, gif: true });
     const media = mastodonStatus(gif, planLayout(gif, 'auto'), BASE).media_attachments as {
       type: string;
+      url: string;
     }[];
-    expect(media[0]!.type).toBe('gifv');
+    expect(media[0]!.type).toBe('image');
+    expect(media[0]!.url).toBe('https://gif.fxtwitter.com/tweet_video/HXAMQ3XW8AAE9Yn.webp');
   });
 
   it('la descarga va pegada a las estadísticas, no en su propio renglón', () => {

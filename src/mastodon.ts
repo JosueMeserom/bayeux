@@ -64,7 +64,7 @@ export function decodeStatusId(token: string): StatusIdDecodificado | null {
 
 interface Attachment {
   id: string;
-  /** `gifv` es lo que hace que un GIF se reproduzca en bucle y sin sonido. */
+  /** `gifv` queda solo de reserva: Discord lo pinta como vídeo. Ver `attachmentsFor`. */
   type: 'image' | 'video' | 'gifv';
   url: string;
   preview_url: string;
@@ -153,6 +153,18 @@ function attachmentsFor(status: FxStatus, plan: Plan, baseUrl: string, imageUrl?
     return [attachment(`${status.id}-0`, plan.url, plan.width, plan.height)];
   }
   if (plan.kind === 'video') {
+    /*
+     * Un GIF de X es un MP4, y Discord pinta `gifv` como un vídeo normal, con
+     * sus controles (visto en un post real). Para que se vea como un GIF tiene
+     * que ser una imagen animada, así que se enlaza el WebP que FxEmbed saca
+     * del mismo MP4, que es lo que declara FxTwitter para estos posts.
+     */
+    // ponytail: depende del conversor de FxEmbed; si falla o lo cierran,
+    // convertir aquí con ffmpeg y guardarlo en la caché.
+    const gif = plan.gif && /^https:\/\/video\.twimg\.com\/(tweet_video\/[\w-]+)\.mp4/.exec(plan.url);
+    if (gif) {
+      return [attachment(`${status.id}-gif`, `https://gif.fxtwitter.com/${gif[1]}.webp`, plan.width, plan.height)];
+    }
     // Este es el camino por el que Discord reproduce el vídeo de verdad, en vez
     // de enseñar la miniatura quieta. El `preview_url` es el póster.
     return [
