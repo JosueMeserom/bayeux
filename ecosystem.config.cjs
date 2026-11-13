@@ -20,10 +20,17 @@ module.exports = {
       // `-if-exists` para que el repo siga arrancando sin .env.
       node_args: '--env-file-if-exists=.env',
 
-      // Con MAX_PIXELS a 12 MP el pico de una composición ronda los 50 MB de
-      // buffers, más libvips y el runtime. 512M deja margen y ataja fugas.
+      // glibc reparte la memoria en una «arena» por hilo y libvips usa muchos,
+      // así que sin esto la memoria se fragmenta y no vuelve al sistema. Medido
+      // cosiendo 18 tiras grandes: 1.000 MB sin el ajuste, 400 MB con él, y un
+      // 15 % más rápido. Es un problema conocido de sharp.
+      // Ojo: pm2 solo aplica `env` al crear la app (pm2 delete + pm2 start).
+      env: { MALLOC_ARENA_MAX: '2' },
+
+      // Con el ajuste de arriba el proceso se asienta en unos 400 MB bajo carga
+      // y el pico medido llega a 520. 640M deja margen sin dejar de atajar fugas.
       // Si subes MAX_PIXELS, sube esto en proporción.
-      max_memory_restart: '512M',
+      max_memory_restart: '640M',
 
       out_file: 'logs/bayeux.out.log',
       error_file: 'logs/bayeux.err.log',
